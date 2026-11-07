@@ -1,0 +1,24 @@
+{
+  "name": "firelight",
+  "version": "0.1.0",
+  "description": "A bonfire in the dark that you open from a link.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
+    "obj2gltf": "^3.2.0",
+    "sharp": "^0.35.5",
+    "vite": "^8.3.6",
+    "vite-plugin-singlefile": "^2.3.4"
+  },
+  "private": true,
+  "type": "module"
+}

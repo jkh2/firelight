@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#05070c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Firelight" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="description" content="A bonfire in the dark. Gather, sit, and talk." />
+  <title>Firelight</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 6c4 12 16 18 16 32a16 16 0 0 1-32 0c0-8 4-12 8-16 0 6 3 9 6 10-2-10 0-18 2-26z' fill='%23ff8a3a'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="hud" aria-live="polite">
+    <div id="twigs" class="empty" title="Twigs you're carrying">
+      <i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <div id="hint" role="status"></div>
+    <div id="buttons">
+      <button id="torchBtn" class="round" aria-label="Torch on or off" title="Torch (F)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c1.6 3.4 4.3 4.9 4.3 8.2a4.3 4.3 0 0 1-8.6 0c0-1.9 1-3 2.1-4 0 1.6.8 2.4 1.6 2.7-.5-2.6 0-4.8.6-6.9z" class="flame"/><path d="M10.6 14.6h2.8l-.6 7h-1.6z" class="stick"/></svg>
+      </button>
+      <button id="soundBtn" class="round" aria-label="Sound on or off" title="Sound (M)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" class="spk"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" class="waves"/><path d="M15.5 9.5l5 5m0-5l-5 5" class="x"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="nowPlaying" aria-live="polite">
+    <div class="np-head"><span class="np-dot"></span><span id="npTitle">On the radio</span><button id="npOff" aria-label="Turn the radio off">✕</button></div>
+    <div class="np-video"><div id="ytPlayer"></div></div>
+  </div>
+
+  <div id="radioPanel" role="dialog" aria-label="Radio">
+    <div class="sheet">
+      <div class="sheet-head"><h2>The radio</h2><button id="radioClose" aria-label="Close">✕</button></div>
+      <div class="row">
+        <input id="radioLink" type="url" inputmode="url" placeholder="Paste a YouTube link" autocomplete="off" />
+        <button id="radioPlay">Play</button>
+      </div>
+      <p id="radioStatus" class="status"></p>
+      <button id="radioOff" class="ghost" disabled>Turn the radio off</button>
+    </div>
+  </div>
+
+  <div id="join">
+    <div class="card">
+      <h1>Firelight</h1>
+      <p class="tag">A fire in the dark. Pull up a chair.</p>
+      <div class="pick">
+        <span class="label">Who are you tonight?</span>
+        <div id="looks"></div>
+      </div>
+      <button id="joinBtn">Join the fire</button>
+      <p id="joinStatus" class="status">Gathering firewood…</p>
+      <ul class="how pc">
+        <li><b>WASD</b> walk · <b>drag</b> look · <b>wheel</b> zoom</li>
+        <li><b>Click</b> a twig to pick it up, the fire to feed it, a chair to sit, the radio to play a song</li>
+        <li><b>F</b> torch · <b>M</b> sound</li>
+      </ul>
+      <ul class="how phone">
+        <li><b>Tap</b> the ground to walk · <b>drag</b> to look · <b>pinch</b> to zoom</li>
+        <li><b>Tap</b> a twig, the fire, a chair, or the radio</li>
+      </ul>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
