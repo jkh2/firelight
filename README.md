@@ -2,6 +2,8 @@
 
 A bonfire in the dark that you open from a link. Up to 20 people stand or sit around one shared fire in a small 3D clearing and talk the way people talk at a real campfire. It runs in a phone or desktop browser with nothing to buy, and it can be added to the home screen like an app.
 
+**Play it:** https://firelight-six.vercel.app
+
 This is **Phase 1: the fire, single player.** You can walk the clearing, light your torch, gather twigs, feed the fire from embers up to a towering bonfire, sit in a chair or on a log, and put a song on the radio. Networking (Phase 2), voice (Phase 3), and sign-in (Phase 2/4) come next. See [HANDOFF.md](HANDOFF.md) for the plan and current state.
 
 ## Play

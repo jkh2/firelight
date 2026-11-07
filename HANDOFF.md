@@ -6,7 +6,7 @@ Live baton for whoever picks up Firelight next, human or AI partner. Update it w
 
 ## State as of 2026-11-06 (Claude, claude.ai session)
 
-**Phase 0 (setup): done.** Repo `jkh2/firelight`, Vite + Three.js.
+**Phase 0 (setup): done.** Repo `jkh2/firelight`, Vite + Three.js, live at https://firelight-six.vercel.app (Vercel auto-deploys every push to `main`).
 **Phase 1 (the fire, single player): built, awaiting James's judgment on his phone.**
 
 Working:
@@ -31,7 +31,6 @@ Working:
 
 ## Next
 
-0. **Connect Vercel** (needs James's go-ahead or two clicks in the Vercel dashboard: Add New → Project → import `jkh2/firelight`; framework Vite, defaults are right). Until then a private single-file preview lives as a claude.ai artifact; the radio can't reach YouTube there.
 1. James plays Phase 1 on his phone and PC and judges the feel. Tune from his notes.
 2. Phase 2: Node.js game server (WebSockets) on James's PC behind a Cloudflare Tunnel, Supabase Google sign-in, and sync of avatars, twigs, fire fuel, seats, radio and torch. `Camper` actions become the network messages.
 3. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses.
