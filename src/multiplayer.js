@@ -44,6 +44,7 @@ export async function joinFire(url, g) {
     applyWorld(w.world);
     for (const p of w.players) addPlayer(p);
     g.onCount?.(remotes.size + 1, w.fireName);
+    g.onChatHistory?.(w.world.chat || []);
   }
   setup(welcome);
 
@@ -99,6 +100,8 @@ export async function joinFire(url, g) {
         else if (radio.videoId) radio.stop({ remote: true });
         break;
       case 'gift': me.receive(m.what, { doneness: m.d, from: m.fromName }); break;
+      case 'said': if (m.by !== myId) g.onSaid?.(m); break;
+      case 'sayDenied': hint(m.text, 2); break;
       case 'gave': {
         const from = remotes.get(m.from), to = remotes.get(m.to);
         if (from && to) hint(`${from.name} handed ${to.name} a marshmallow.`, 3);
@@ -116,6 +119,7 @@ export async function joinFire(url, g) {
     if (type === 'sitting') net.act('sit', { seat: d.seat });
     if (type === 'stood') net.act('stand');
     if (type === 'foundMallows') lastCrateGot = d.got;
+    if (type === 'say') { if (net.open) net.act('say', { text: d.text }); else hint("You're not connected to the fire right now, so that wasn't heard. It will reconnect on its own.", 5); }
   });
   radio.on((type, d) => {
     if (type === 'loading' && !d.remote) net.act('radio', { videoId: d.videoId });

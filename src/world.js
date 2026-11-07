@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { seatSpot, crateSpot, CRATES } from '../shared/rules.js';
 
 // ---------------------------------------------------------------------------
 // The clearing: ground, sky, trees, rocks, grass, and the ring of seats.
@@ -309,18 +310,17 @@ function buildSeats(props, colliders) {
   let chair = 0;
 
   for (let i = 0; i < WORLD.seatCount; i++) {
-    const a = (i / WORLD.seatCount) * Math.PI * 2 + 0.31 + (rand() - 0.5) * 0.12;
-    const r = WORLD.seatRadius + (rand() - 0.5) * 0.25;
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    const facing = Math.atan2(-x, -z); // yaw that looks at the fire
+    // Seat spots come from the shared rules, so the server knows them too (AI partners sit here)
+    const spot = seatSpot(i);
+    const x = spot.x, z = spot.z, facing = spot.facing;
     const g = new THREE.Group();
     g.position.set(x, 0, z);
     g.rotation.y = facing;
     const isLog = i % 2 === 0;
     let height;
     if (isLog) {
-      const log = makeLog(props, 1.15 + rand() * 0.2, 0.19);
-      log.rotation.y = (rand() - 0.5) * 0.25;
+      const log = makeLog(props, 1.15 + spot.jitter * 0.2, 0.19);
+      log.rotation.y = (spot.jitter - 0.5) * 0.25;
       g.add(log);
       height = 0.18;
     } else {
@@ -346,7 +346,7 @@ function buildSeats(props, colliders) {
     group.add(g);
     const seat = { id: i, x, z, facing, height, kind: isLog ? 'log' : 'chair', occupant: null, mesh: g };
     // Sit a little in front of the seat's center so knees clear it
-    seat.sitX = x + Math.sin(facing) * 0.04; seat.sitZ = z + Math.cos(facing) * 0.04;
+    seat.sitX = spot.sitX; seat.sitZ = spot.sitZ;
     seats.push(seat);
     colliders.push({ x, z, r: 0.42, seat: i });
     g.traverse((o) => { if (o.isMesh) o.userData.seat = i; });
@@ -365,6 +365,8 @@ export function buildWorld(scene, props) {
   const sky = buildSky();
   const { group: seatGroup, seats } = buildSeats(props, colliders);
   const camp = buildCamp(props, colliders);
+  // Leave room in the woods for the marshmallow crates
+  for (let i = 0; i < CRATES.count; i++) { const c = crateSpot(i); colliders.push({ x: c.x, z: c.z, r: 0.35, crate: i }); }
   const forest = buildForest(props, colliders);
   const grass = buildGrass(props);
   scene.add(ground, sky.group, forest, grass, seatGroup, camp);

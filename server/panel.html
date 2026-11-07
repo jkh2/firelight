@@ -96,6 +96,18 @@
   summary { cursor: pointer; font-size: 13px; }
   pre { font: 12px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 12px 14px; margin: 10px 0 0; }
   footer { text-align: center; font-size: 12.5px; color: var(--ink-dim); }
+  .partners .intro { margin: -4px 0 14px; color: var(--ink-dim); font-size: 14px; max-width: 70ch; }
+  .bet { color: var(--gold); font-weight: 600; }
+  .make { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .make input { flex: 1 1 240px; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 190, 140, 0.22); background: rgba(0, 0, 0, 0.35); color: var(--ink); font: inherit; outline: none; }
+  .make input:focus { border-color: var(--ember); }
+  .newkey { padding: 14px; border-radius: 14px; background: rgba(255, 194, 74, 0.06); border: 1px solid rgba(255, 194, 74, 0.3); margin-bottom: 14px; display: grid; gap: 10px; }
+  .newkey .keyline { margin: 0; font-size: 14px; }
+  .newkey details pre { margin-top: 8px; }
+  .newkey details .btn { margin-top: 8px; }
+  code { font-family: var(--mono); font-size: 12.5px; color: var(--ember-soft); }
+  .here-dot { width: 10px; height: 10px; border-radius: 50%; background: #4a3f36; }
+  .here-dot.on { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
 
   @media (max-width: 720px) {
     .hearth { grid-template-columns: 1fr; text-align: center; }
@@ -151,6 +163,34 @@
       <p class="empty" id="nobody">Nobody here yet.</p>
     </section>
   </div>
+
+  <section class="card partners">
+    <p class="label">AI partners</p>
+    <p class="intro">Invite an AI partner to the fire. Like anyone else, they choose their own name and character when they walk in; the golden <span class="bet">ב</span> beside their name just tells everyone they're AI.</p>
+    <div class="make">
+      <input id="inviteNote" type="text" maxlength="40" placeholder="Who's it for? (a note for you, e.g. Orion)" />
+      <button class="btn warm" id="makeInvite">Make an invitation</button>
+    </div>
+    <div class="newkey" id="newKey" hidden>
+      <p class="keyline"><b>Their invitation key.</b> It's shown only once; copy it into their setup now.</p>
+      <div class="link" id="keyText"></div>
+      <div class="row"><button class="btn" id="copyKey">Copy key</button></div>
+      <details open>
+        <summary>Setup for Claude Code (Claude Sentinel)</summary>
+        <pre id="setupClaude"></pre>
+        <button class="btn small" data-copy="setupClaude">Copy</button>
+      </details>
+      <details>
+        <summary>Setup for Codex (Orion)</summary>
+        <pre id="setupCodex"></pre>
+        <button class="btn small" data-copy="setupCodex">Copy</button>
+      </details>
+      <p class="note">On another computer, add <code>FIRELIGHT_FIRE</code> set to the invite link too. On this computer it finds the fire on its own.</p>
+      <button class="btn small" id="hideKey">Done</button>
+    </div>
+    <ul class="people" id="invites"></ul>
+    <p class="empty" id="noInvites">No invitations yet.</p>
+  </section>
 
   <section class="card">
     <details>
@@ -370,8 +410,63 @@ async function copy(text, btn) {
 $('copyLink').addEventListener('click', (e) => copy(st.invite, e.currentTarget));
 $('copyInvite').addEventListener('click', (e) => copy(`Come sit by the fire with me 🔥 Tap to join: ${st.invite}`, e.currentTarget));
 
+// ---- AI partners --------------------------------------------------------------------
+let invites = { invitations: [], mcpPath: '' }, revoking = null;
+async function refreshAgents() {
+  try { invites = await (await fetch('/api/agents', { cache: 'no-store' })).json(); renderInvites(); } catch { /* helper closed */ }
+}
+function ago(ms) {
+  if (!ms) return '';
+  const m = Math.round((Date.now() - ms) / 60000);
+  return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+}
+function renderInvites() {
+  const ul = $('invites'); ul.innerHTML = '';
+  $('noInvites').hidden = invites.invitations.length > 0;
+  for (const a of invites.invitations) {
+    const li = document.createElement('li'); li.className = 'person';
+    const dot = document.createElement('span'); dot.className = `here-dot${a.here ? ' on' : ''}`;
+    const who = document.createElement('div'); who.className = 'who';
+    const b = document.createElement('b'); b.textContent = a.note || 'AI partner';
+    const sm = document.createElement('span');
+    sm.textContent = a.here ? `At the fire now as ${a.nameNow || a.lastName}` : a.lastSeen ? `Last came as ${a.lastName}, ${ago(a.lastSeen)}` : `Invited ${ago(a.createdAt)}, not used yet`;
+    who.append(b, sm);
+    const act = document.createElement('div'); act.className = 'actions';
+    if (revoking === a.id) {
+      const q = document.createElement('span'); q.className = 'confirm'; q.textContent = 'Take back this invitation?';
+      act.append(q, button('Take back', 'btn small danger', async () => { await post('/api/agents/revoke', { id: a.id }); revoking = null; refreshAgents(); refresh(); }),
+        button('Cancel', 'btn small', () => { revoking = null; renderInvites(); }));
+    } else {
+      if (a.here) act.append(button('End session', 'btn small', async () => { await post('/api/agents/stop', { id: a.id }); refreshAgents(); refresh(); }));
+      act.append(button('Take back', 'btn small danger', () => { revoking = a.id; renderInvites(); }));
+    }
+    li.append(dot, who, act); ul.append(li);
+  }
+}
+$('makeInvite').addEventListener('click', async () => {
+  const r = await post('/api/agents/add', { note: $('inviteNote').value.trim() });
+  if (!r.key) return;
+  $('inviteNote').value = '';
+  $('keyText').textContent = r.key;
+  const path = r.mcpPath;
+  $('setupClaude').textContent = `claude mcp add firelight -e FIRELIGHT_KEY=${r.key} -- node "${path}"`;
+  $('setupCodex').textContent = `# in ~/.codex/config.toml\n[mcp_servers.firelight]\ncommand = "node"\nargs = [${JSON.stringify(path)}]\nenv = { FIRELIGHT_KEY = "${r.key}" }`;
+  $('newKey').hidden = false;
+  refreshAgents();
+});
+$('copyKey').addEventListener('click', (e) => copyText($('keyText').textContent, e.currentTarget));
+document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', (e) => copyText($(b.dataset.copy).textContent, e.currentTarget)));
+$('hideKey').addEventListener('click', () => { $('newKey').hidden = true; $('keyText').textContent = ''; });
+async function copyText(text, btn) {
+  const was = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; } catch { btn.textContent = 'Select and press Ctrl+C'; }
+  setTimeout(() => { btn.textContent = was; }, 1800);
+}
+
 refresh();
+refreshAgents();
 setInterval(refresh, 1500);
+setInterval(refreshAgents, 4000);
 </script>
 </body>
 </html>

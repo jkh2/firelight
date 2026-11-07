@@ -7,7 +7,7 @@ import { CRATES, eatLine } from './marshmallow.js';
 // A Camper is anyone at the fire. It takes plain actions:
 //   walkTo(x, z) · pickTwig(id) · feedFire() · sit(seatId) · stand()
 //   useRadio() · openCrate(id) · roast() · eat() · blowOut() · putAwayStick()
-//   give(other, 'roasted' | 'raw') · eatTreat()
+//   give(other, 'roasted' | 'raw') · eatTreat() · say(text)
 //   setTorch(on) · steer(dx, dz, run)
 // A person's mouse, keyboard or thumbs drive these today. Later a friend
 // over the network, or an AI partner, can drive the very same actions.
@@ -72,6 +72,11 @@ export class Camper {
     if (!s || (s.occupant && s.occupant !== this)) return;
     if (this.mode === 'sitting') { if (this.seat === s) return; return this.stand(() => this.sit(seatId)); }
     this.goal = { type: 'seat', id: seatId };
+  }
+  /** Say something out loud. Shows over your head; in a shared fire everyone hears it. */
+  say(text) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    if (t) this.emit('say', { text: t });
   }
   /** Walk to a hidden crate and take the marshmallows inside. */
   openCrate(id) {
@@ -269,7 +274,7 @@ export class Camper {
       this.seat = s;
       this.mode = 'sitting';
       this.heading = s.facing;
-      this.pos.set(s.sitX + Math.sin(s.facing) * SIT_FORWARD, 0, s.sitZ + Math.cos(s.facing) * SIT_FORWARD);
+      this.pos.set(s.sitX, 0, s.sitZ); // the shared seat spot already places the body forward
       this.avatar.once('Sit_Chair_Down', { done: () => this.emit('sat', { seat: s.id }) });
       this.emit('sitting', { seat: s.id });
     }

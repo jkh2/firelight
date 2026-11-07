@@ -41,7 +41,8 @@ export class Twigs {
   /** Lay twig i at its spot for its current life. Same spot for every player. */
   scatter(i) {
     const it = this.items[i];
-    Object.assign(it, twigSpot(i, it.gen, this.blocked));
+    // Same spot for every player and the server (no local checks, so everyone agrees)
+    Object.assign(it, twigSpot(i, it.gen));
     it.present = true;
     this.write(i);
   }

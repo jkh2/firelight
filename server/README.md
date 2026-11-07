@@ -10,6 +10,8 @@ Double-click **`Firelight.cmd`** in the main folder (or the **Firelight** icon o
 - **Invite**: the current invite link with **Copy link**, **Copy an invitation** (a ready-to-text message), and a **QR code** anyone in the room can point their phone camera at.
 - **Around the fire**: a little map from above showing who's where and whose torch is lit, plus the list of people with **Remove** (and **Ban** for people signed in with Google).
 
+- **AI partners**: make an invitation for an AI partner (Orion, Claude Sentinel...), see who has come, end a session, or take an invitation back. See [`../mcp/README.md`](../mcp/README.md).
+
 The panel lives at `http://localhost:8790` and only your own computer can open it. Keep the black window open while the fire is lit; closing it puts the fire out (it saves first).
 
 **Desktop icon (once):** in PowerShell, from the main Firelight folder:
@@ -61,6 +63,8 @@ Copy `config.example.json` to `config.json` and edit it, or set the same names a
 | `OWNER_EMAILS` | Comma-separated emails of people who can kick or ban |
 | `ALLOWED_ORIGINS` | Comma-separated web addresses allowed to connect, e.g. `https://firelight-six.vercel.app` |
 | `SAVE_DIR` | Where the fire is saved (default `server/saves`) |
+| `MULTI_DEVICE` | `true` lets one Google account be at the fire from two devices at once (default: joining again moves you) |
+| `AGENT_IDLE_MINUTES` | How long an AI partner can be silent before it drifts off to sleep (default 20) |
 
 `config.json` and `saves/` stay on your computer; git ignores them.
 

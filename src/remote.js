@@ -36,6 +36,63 @@ function nameTag(name, ai) {
   return s;
 }
 
+/** A speech bubble: the words someone just said, floating over their head. */
+export function speechBubble(text, ai) {
+  const c = document.createElement('canvas');
+  const g = c.getContext('2d');
+  const font = '500 28px Inter, system-ui, sans-serif';
+  g.font = font;
+  // Wrap to at most 4 lines
+  const words = String(text).split(' '), lines = [];
+  let line = '';
+  for (const w of words) {
+    const t = line ? `${line} ${w}` : w;
+    if (g.measureText(t).width > 420 && line) { lines.push(line); line = w; } else line = t;
+  }
+  if (line) lines.push(line);
+  if (lines.length > 4) { lines.length = 4; lines[3] = `${lines[3].slice(0, -1)}…`; }
+  const w = Math.min(460, Math.max(...lines.map((l) => g.measureText(l).width))) + 40, h = lines.length * 36 + 30, tail = 16;
+  c.width = Math.ceil(w); c.height = h + tail;
+  g.font = font;
+  g.fillStyle = ai ? 'rgba(40,30,12,0.88)' : 'rgba(250,240,226,0.94)';
+  const r = 18;
+  g.beginPath(); g.moveTo(r, 0); g.arcTo(w, 0, w, h, r); g.arcTo(w, h, 0, h, r);
+  g.lineTo(w / 2 + 12, h); g.lineTo(w / 2, h + tail); g.lineTo(w / 2 - 12, h);
+  g.arcTo(0, h, 0, 0, r); g.arcTo(0, 0, w, 0, r); g.fill();
+  if (ai) { g.strokeStyle = 'rgba(255,194,74,0.7)'; g.lineWidth = 2; g.stroke(); }
+  g.fillStyle = ai ? '#ffe9c2' : '#2a1d12'; g.textBaseline = 'middle';
+  lines.forEach((l, i) => g.fillText(l, 20, 33 + i * 36));
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false, fog: false }));
+  const scale = 0.0042;
+  sp.scale.set(c.width * scale, c.height * scale, 1);
+  sp.center.set(0.5, 0);
+  sp.renderOrder = 12;
+  sp.userData.life = 5 + Math.min(9, String(text).length / 14);
+  return sp;
+}
+
+/** Shows, ages and fades one bubble per person. */
+export class Bubbles {
+  constructor(scene) { this.scene = scene; this.map = new Map(); }
+  show(key, text, ai) {
+    this.clear(key);
+    const b = speechBubble(text, ai);
+    this.scene.add(b);
+    this.map.set(key, { b, t: 0 });
+  }
+  clear(key) { const e = this.map.get(key); if (e) { this.scene.remove(e.b); e.b.material.map.dispose(); e.b.material.dispose(); this.map.delete(key); } }
+  update(dt, positionOf) {
+    for (const [key, e] of this.map) {
+      e.t += dt;
+      const p = positionOf(key);
+      if (!p || e.t > e.b.userData.life) { this.clear(key); continue; }
+      e.b.position.set(p.x, p.y, p.z);
+      e.b.material.opacity = Math.min(1, e.t * 6, (e.b.userData.life - e.t) * 1.5);
+    }
+  }
+}
+
 export class RemotePlayer {
   constructor(scene, info, { models, clips, torchModel, fire, seats }) {
     this.id = info.id;

@@ -48,3 +48,53 @@ export function twigSpot(id, gen, blocked = () => false) {
   }
   return { x, z, yaw: r() * Math.PI * 2 };
 }
+
+// ---- places everyone (and the server) agrees on --------------------------------
+// The server walks AI partners' bodies, so it needs to know where the seats, the
+// radio and the crates are, exactly where every player's game draws them.
+
+export const SEAT_RADIUS = 3.35;
+export const SIT_FORWARD = 0.36; // the sitting body sits a little in front of the seat's center
+
+/** Seat i: where it stands, which way it faces (toward the fire), and where a body sits on it. */
+export function seatSpot(i) {
+  const r = seeded(9001 + i * 31);
+  const a = (i / SEATS) * Math.PI * 2 + 0.31 + (r() - 0.5) * 0.12;
+  const d = SEAT_RADIUS + (r() - 0.5) * 0.25;
+  const x = Math.cos(a) * d, z = Math.sin(a) * d;
+  const facing = Math.atan2(-x, -z);
+  return { x, z, facing, sitX: x + Math.sin(facing) * SIT_FORWARD, sitZ: z + Math.cos(facing) * SIT_FORWARD, log: i % 2 === 0, jitter: r() };
+}
+
+/** The radio's stump table, between two seats. */
+export const RADIO_SPOT = { x: Math.cos(2.5) * 3.6, z: Math.sin(2.5) * 3.6, angle: 2.5, radius: 3.6 };
+
+/** Crate i: hidden out in the dark, one in each part of the woods. */
+export function crateSpot(i) {
+  const r = seeded(424242 + i * 977);
+  const a = (i / CRATES.count) * Math.PI * 2 + 0.5 + (r() - 0.5) * 0.7;
+  const d = CRATES.minR + r() * (CRATES.maxR - CRATES.minR);
+  return { x: Math.cos(a) * d, z: Math.sin(a) * d, yaw: r() * Math.PI * 2 };
+}
+
+/** Fire size from fuel: 0 = embers, 1 = towering bonfire. */
+export function sizeFromFuel(fuel) {
+  return Math.min(1.15, Math.sqrt(Math.max(0, fuel) / FIRE.bonfireFuel));
+}
+/** How far the fire's light reaches, in meters from the center. */
+export const lightRadius = (fuel) => 5 + 9 * Math.min(1, sizeFromFuel(fuel));
+export function sizeName(fuel) {
+  if (fuel < 0.05) return 'glowing embers';
+  const s = sizeFromFuel(fuel);
+  return s < 0.25 ? 'a small fire' : s < 0.5 ? 'a cozy fire' : s < 0.8 ? 'a big fire' : 'a towering bonfire';
+}
+
+/** How a marshmallow reads, from raw to charcoal. */
+export function roastLabel(d, burning = false) {
+  if (burning) return 'on fire';
+  return d < 0.18 ? 'raw' : d < 0.4 ? 'warming up' : d < 0.62 ? 'golden' : d < 0.8 ? 'toasty brown' : d < 1.0 ? 'charred' : 'burnt to a crisp';
+}
+/** Doneness to aim for when someone asks for a marshmallow done a certain way. */
+export const ROAST_TARGET = { warm: 0.3, golden: 0.52, toasty: 0.7, charred: 0.9 };
+
+export const AI_LOOKS = ['rogue_hooded', 'rogue', 'barbarian', 'knight', 'mage'];

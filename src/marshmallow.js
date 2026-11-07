@@ -50,7 +50,7 @@ export function roastColor(d, out = new THREE.Color()) {
   return out.copy(BROWN).lerp(CHAR, THREE.MathUtils.clamp((d - 0.78) / 0.3, 0, 1));
 }
 
-import { CRATES, seeded } from '../shared/rules.js';
+import { CRATES, crateSpot } from '../shared/rules.js';
 export { CRATES };
 
 /** Small wooden crates of marshmallows hidden in the dark. Open one, take what's inside; it refills later. */
@@ -66,24 +66,13 @@ export class Crates {
     const white = new THREE.MeshLambertMaterial({ color: 0xf6f1e8 });
     const mallowGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.045, 10);
 
-    // Hide them beside trees and rocks so you have to look
-    const rand = seeded(424242); // every player hides the crates in the same places
-    const anchors = colliders.filter((c) => c.r >= 0.45 && c.seat == null && !c.radio).map((c) => ({ c, r: Math.hypot(c.x, c.z) }))
-      .filter((a) => a.r > CRATES.minR && a.r < CRATES.maxR);
+    // Spots come from the shared rules, so the server (and AI partners) know them too.
+    // The forest leaves room for them, so they sit tucked among the trees.
     for (let i = 0; i < CRATES.count; i++) {
-      let x = 0, z = 0;
-      for (let tries = 0; tries < 40; tries++) {
-        const a = anchors.length ? anchors[Math.floor(rand() * anchors.length)] : null;
-        const ang = rand() * Math.PI * 2;
-        if (a) { x = a.c.x + Math.cos(ang) * (a.c.r + 0.55); z = a.c.z + Math.sin(ang) * (a.c.r + 0.55); }
-        else { const r = CRATES.minR + rand() * (CRATES.maxR - CRATES.minR); x = Math.cos(ang) * r; z = Math.sin(ang) * r; }
-        const sector = Math.atan2(z, x);
-        const spread = this.items.every((it) => Math.abs(((Math.atan2(it.z, it.x) - sector + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 0.8);
-        if (!blocked(x, z, 0.35) && spread) break;
-      }
+      const { x, z, yaw } = crateSpot(i);
       const g = new THREE.Group();
       g.position.set(x, 0, z);
-      g.rotation.y = rand() * Math.PI * 2;
+      g.rotation.y = yaw;
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.26, 0.32), wood);
       body.position.y = 0.13;
       g.add(body);
@@ -113,7 +102,6 @@ export class Crates {
       g.add(hinge);
       g.traverse((o) => { if (o.isMesh) o.userData.crate = i; });
       this.group.add(g);
-      colliders.push({ x, z, r: 0.3, crate: i });
       this.items.push({ id: i, x, z, full: true, refillAt: 0, open: 0, mesh: g, hinge, stash });
     }
     this.time = 0;

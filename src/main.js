@@ -10,6 +10,7 @@ import { Sound } from './audio.js';
 import { Radio, parseYouTube } from './radio.js';
 import { Crates, Roaster, roastLabel, roastColor, CRATES } from './marshmallow.js';
 import { Critters } from './critters.js';
+import { Bubbles } from './remote.js';
 import { fireAddress, statusAddress } from './net.js';
 import { joinFire } from './multiplayer.js';
 import { signInAvailable, currentUser, signInWithGoogle } from './auth.js';
@@ -381,6 +382,8 @@ function startGame(props, clips, models, animals) {
   addEventListener('keydown', (e) => {
     if (!joined || e.target.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
+    if ((k === 'enter' || k === 't') && !e.repeat) { e.preventDefault(); openChat(); return; }
+    if (k === 'b' && !e.repeat) { setBubbles(!bubblesOn); hint(bubblesOn ? 'Speech bubbles on.' : 'Speech bubbles off. What people say still shows in the chat.', 2.5); return; }
     if (k === 'f' && !e.repeat) { me.toggleTorch(); return; }
     if (k === 'm' && !e.repeat) { toggleSound(); return; }
     if (k === 'e' && !e.repeat) { me.feedFire(); return; }
@@ -495,6 +498,7 @@ function startGame(props, clips, models, animals) {
     critters.update(dt, camera);
     updateRoastChip();
     mp?.update(dt);
+    bubbles.update(dt, bubbleAt);
     world.sky.update(dt, time, Math.min(1, fire.size * 1.15));
     world.hemi.intensity = 0.32 + 0.4 * (1 - Math.min(1, fire.size * 1.4)); // moonlight reads more when the fire is low
     if (markerT > 0) { markerT = Math.max(0, markerT - dt * 1.4); marker.material.opacity = markerT * 0.8; marker.scale.setScalar(1 + (1 - markerT) * 0.6); }
@@ -523,6 +527,67 @@ function startGame(props, clips, models, animals) {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+
+  // ---- chat: speech bubbles and a small log ------------------------------------------
+  const bubbles = new Bubbles(scene);
+  // Each person chooses whether they see speech bubbles; the chat log always shows what was said
+  let bubblesOn = store.get('firelight.bubbles', '1') !== '0';
+  function setBubbles(on) {
+    bubblesOn = on;
+    store.set('firelight.bubbles', on ? '1' : '0');
+    const b = $('bubbleToggle');
+    b.textContent = on ? 'Bubbles on' : 'Bubbles off';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.toggle('off', !on);
+    if (!on) for (const key of [...bubbles.map.keys()]) bubbles.clear(key);
+  }
+  setBubbles(bubblesOn);
+  $('bubbleToggle').addEventListener('click', () => { setBubbles(!bubblesOn); chatInput.focus(); });
+  const chatLog = $('chatLog'), chatBar = $('chatBar'), chatInput = $('chatInput');
+  function logLine({ name, text, ai, note, mine }) {
+    const el = document.createElement('div');
+    el.className = `line${note ? ' note' : ''}${mine ? ' mine' : ''}`;
+    if (!note) { const n = document.createElement('b'); n.textContent = `${ai ? 'ב ' : ''}${name}`; if (ai) n.className = 'ai'; el.append(n, ' '); }
+    el.append(document.createTextNode(text));
+    chatLog.append(el);
+    while (chatLog.children.length > 40) chatLog.firstChild.remove();
+    chatLog.scrollTop = chatLog.scrollHeight;
+    // Each line fades on its own after a while; opening chat shows them all again
+    setTimeout(() => el.classList.add('old'), 14000);
+  }
+  function openChat() { if (!joined) return; chatBar.classList.add('open'); chatLog.classList.add('open'); document.body.classList.add('chatting'); chatInput.focus(); }
+  function closeChat() { chatBar.classList.remove('open'); chatLog.classList.remove('open'); document.body.classList.remove('chatting'); chatInput.blur(); }
+  function sendChat() {
+    const text = chatInput.value.trim();
+    if (!text) { closeChat(); return; }
+    me.say(text);
+    chatInput.value = '';
+    if (touch) closeChat();
+  }
+  me.on((type, d) => {
+    if (type !== 'say') return;
+    if (bubblesOn) bubbles.show('me', d.text, false);
+    logLine({ name: me.name || 'You', text: d.text, mine: true });
+  });
+  $('chatBtn').addEventListener('click', () => (chatBar.classList.contains('open') ? closeChat() : openChat()));
+  $('chatSend').addEventListener('click', sendChat);
+  chatInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+    if (e.key === 'Escape') closeChat();
+  });
+  const bubblePos = new THREE.Vector3();
+  function bubbleAt(key) {
+    if (key === 'me') { if (fpOn) return null; const p = me.avatar.root.position; return bubblePos.set(p.x, p.y + 2.45, p.z); }
+    const r = mp?.remotes.get(key);
+    return r ? bubblePos.set(r.pos.x, r.pos.y + 2.45, r.pos.z) : null;
+  }
+  const onSaid = (m) => {
+    if (m.note) { logLine({ text: m.text, note: true }); return; }
+    if (m.by && bubblesOn) bubbles.show(m.by, m.text, m.ai);
+    logLine({ name: m.name, text: m.text, ai: m.ai });
+  };
+  const onChatHistory = (lines) => { chatLog.innerHTML = ''; for (const l of lines) onSaid({ ...l, by: null }); };
 
   // ---- give a marshmallow to someone -----------------------------------------
   const givePanel = $('givePanel');
@@ -592,7 +657,7 @@ function startGame(props, clips, models, animals) {
         mp = await joinFire(fireURL, {
           scene, me, fire, twigs, crates, seats: world.seats, radio, sound, hint, throwTwig, models, clips, torchModel,
           hello: { name, look, token: user?.token },
-          onCount: showCount, onInventory: updateTwigHud,
+          onCount: showCount, onInventory: updateTwigHud, onSaid, onChatHistory,
         });
         window.__firelight.mp = mp;
       } catch (e) {

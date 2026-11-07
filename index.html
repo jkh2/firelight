@@ -26,8 +26,13 @@
       <span id="mallows" class="none"><b class="mallow-ico"></b><span id="mallowCount">0</span></span>
     </button>
     <div id="hint" role="status"></div>
+    <div id="chatLog" aria-live="polite"></div>
+    <div id="chatBar"><input id="chatInput" type="text" maxlength="240" autocomplete="off" placeholder="Say something to the fire…" /><button id="chatSend">Say</button><button id="bubbleToggle" class="bubble-toggle" aria-pressed="true" title="Speech bubbles over heads (B)">Bubbles on</button></div>
     <div id="people" hidden><span class="dot"></span><span id="peopleCount">Just you</span></div>
     <div id="buttons">
+      <button id="chatBtn" class="round" aria-label="Say something" title="Chat (Enter)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17h-1A1.5 1.5 0 0 1 3 15.5V7a1.5 1.5 0 0 1 1.5-1.5z" class="bub"/></svg>
+      </button>
       <button id="torchBtn" class="round" aria-label="Torch on or off" title="Torch (F)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c1.6 3.4 4.3 4.9 4.3 8.2a4.3 4.3 0 0 1-8.6 0c0-1.9 1-3 2.1-4 0 1.6.8 2.4 1.6 2.7-.5-2.6 0-4.8.6-6.9z" class="flame"/><path d="M10.6 14.6h2.8l-.6 7h-1.6z" class="stick"/></svg>
       </button>
@@ -108,7 +113,7 @@
       <ul class="how pc">
         <li><b>WASD</b> walk · <b>drag</b> look · <b>wheel</b> zoom</li>
         <li><b>Click</b> a twig, the fire, a chair, the radio, or a crate you find in the woods</li>
-        <li><b>F</b> torch · <b>I</b> pack · <b>R</b> roast · <b>Q</b> eat · <b>M</b> sound</li>
+        <li><b>Enter</b> chat · <b>B</b> bubbles · <b>F</b> torch · <b>I</b> pack · <b>R</b> roast · <b>Q</b> eat · <b>M</b> sound</li>
       </ul>
       <ul class="how phone">
         <li><b>Tap</b> the ground to walk · <b>drag</b> to look · <b>pinch</b> to zoom</li>

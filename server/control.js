@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import QRCode from 'qrcode';
+import { AgentStore } from './agents.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fileConfig = existsSync(join(here, 'config.json')) ? JSON.parse(readFileSync(join(here, 'config.json'), 'utf8')) : {};
@@ -30,7 +31,11 @@ const CFG = {
   publicHost: env('PUBLIC_HOST', ''),
   autoOpen: String(env('AUTO_OPEN', 'true')) !== 'false',
   autoStart: String(env('AUTO_START', 'false')) === 'true',
+  saveDir: env('SAVE_DIR', join(here, 'saves')),
 };
+// AI partner invitations live beside the fire's save, shared with the game server
+const invitations = new AgentStore(join(CFG.saveDir, 'agents.json'));
+const mcpPath = join(here, '..', 'mcp', 'index.js');
 
 // ---- what's happening -------------------------------------------------------
 const S = { state: 'off', host: '', error: '', startedAt: 0, log: [] };
@@ -170,12 +175,29 @@ const panel = http.createServer(async (req, res) => {
     const svg = await QRCode.toString(`${CFG.site}/?fire=${S.host}`, { type: 'svg', margin: 1, width: 240, color: { dark: '#1a120c', light: '#fff7ec' } });
     res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' }); res.end(svg); return;
   }
+  if (req.method === 'GET' && path === '/api/agents') {
+    const live = S.state === 'on' ? await adminCall('/agents') : null;
+    const here = new Map((live?.agents || []).filter((a) => a.here).map((a) => [a.id, a]));
+    const people = S.state === 'on' ? (await adminCall('/people'))?.people || [] : [];
+    return reply(200, {
+      mcpPath,
+      invitations: invitations.public().map((a) => ({ ...a, here: here.has(a.id), nameNow: here.has(a.id) ? (here.get(a.id).lastName || a.lastName) : '' })),
+      aiHere: people.filter((p) => p.ai).map((p) => p.name),
+    });
+  }
   if (req.method === 'POST' && req.headers['x-firelight'] === 'panel') {
     let body = ''; req.on('data', (c) => { body += c; });
     await new Promise((r) => req.on('end', r));
     let m = {}; try { m = body ? JSON.parse(body) : {}; } catch { /* empty */ }
     if (path === '/api/on') { lightFire(); return reply(200, { ok: true }); }
     if (path === '/api/off') { await putOut(); return reply(200, { ok: true }); }
+    if (path === '/api/agents/add') { const r = invitations.add(m.note); say(`Made an AI partner invitation${m.note ? ` (${m.note})` : ''}.`); return reply(200, { ...r, mcpPath }); }
+    if (path === '/api/agents/stop') { if (S.state === 'on') await adminCall('/agents/stop', 'POST', { id: m.id }); return reply(200, { ok: true }); }
+    if (path === '/api/agents/revoke') {
+      if (S.state === 'on') await adminCall('/agents/revoke', 'POST', { id: m.id });
+      invitations.revoke(m.id); say('Took back an AI partner invitation.');
+      return reply(200, { ok: true });
+    }
     if (path === '/api/remove' && S.state === 'on') { return reply(200, (await adminCall('/remove', 'POST', { id: m.id, ban: !!m.ban })) ?? { error: 'failed' }); }
   }
   res.writeHead(404); res.end();

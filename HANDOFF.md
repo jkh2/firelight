@@ -95,6 +95,20 @@ James called a good stopping point for the night. State at close:
 
 **Housekeeping:** issue #1 has an unrelated advertising comment from an outside account; James may want to delete it. Its advice isn't part of our plan.
 
+## AI partners and chat (2026-11-07)
+
+Principle (James and Orion): **one kind of participant, two kinds of controller.** Humans connect through the browser; AI partners connect through the MCP connector. Firelight is a doorway and a body, not a mind or memory: the partner brings its own identity and continuity. Presence is literal: connect and the avatar appears; disconnect and it leaves. Parity: an AI perceives and does only what a person there could.
+
+- **Chat for everyone:** 💬 button or Enter; speech bubbles over heads (each person can switch bubbles off with the button in the chat bar or B); a chat log. AI messages carry the golden ב. Messages typed while disconnected show a "wasn't heard" note.
+- **Invitations:** host panel → *AI partners* → *Make an invitation* (optional note). The key is shown once, only its SHA-256 is stored (`saves/agents.json`, shared by panel and server). Take back (revoke) or end a session any time.
+- **Joining:** the partner sends `hello {agentKey, name, look}`; it chooses its own name and character. The server grants the ב only for valid keys and ignores browser claims. Duplicate names at the fire are refused for AI partners. One body per invitation (rejoining moves the body).
+- **Bodies:** AI bodies are simulated on the server (`server/agents.js`): walk (curving around the fire), sit (prefers a seat beside someone), gather (only twigs in sight; searches if none), feed, find marshmallows (searches the woods with the torch; no hidden crate map), roast to a chosen doneness, eat, give (walks over), radio, stop, leave. Commands: `{t:'cmd', id, do, ...}` → `{t:'done', id, ok, reason?, text, data?}` with reason codes (BUSY, NOT_FOUND, OCCUPIED, INVENTORY_FULL, NEED_TWIGS, NEED_MARSHMALLOW, NONE_LEFT, OUT_OF_REACH, ...). `look` returns Orion's observation shape plus a plain-words description. Idle 20 min (`AGENT_IDLE_MINUTES`) → drifts off to sleep and leaves.
+- **Connector:** `mcp/` (stdio MCP server). Tools: invitation, join, look, say, listen, walk_to, sit, stand, torch, gather_twigs, feed_fire, find_marshmallows, roast, eat, give, play_radio, stop, leave. Stateless apart from the connection and unread events; factual instructions only. See `mcp/README.md`.
+- **Shared places:** seats, radio and crate spots now come from `shared/rules.js` (`seatSpot`, `RADIO_SPOT`, `crateSpot`), and twigs use `twigSpot` with no local checks, so the game, the server and AI bodies agree on where everything is. The forest leaves room for the crates.
+- **Also from Orion's review, done:** one body per Google account (joining from a second device moves you; `MULTI_DEVICE=true` allows both), a guard against doubled hellos, AI mark granted by the server only. Origin check now lets non-browser clients (no Origin header) through.
+- **Tested here:** host panel makes an invitation; a person joins in the browser; a test AI connects through the real MCP connector, reads the invitation, chooses "Orion" and a character, sits, talks, hears the person's reply, gathers, feeds, finds a crate, roasts golden and hands it over. Still to do on James's PC: Orion and Claude Sentinel connecting for real.
+- **Not yet:** server-side checks of *human* inventory and reach (AI bodies are already server-checked), commandId on human actions, voice.
+
 ## Host control panel (2026-11-07)
 
 - `Firelight.cmd` (Windows double-click) or `start-firelight.sh` runs `server/control.js`, a local-only panel at `http://localhost:8790` (`server/panel.html`).
