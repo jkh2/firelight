@@ -578,9 +578,10 @@ function startGame(props, clips, models, animals) {
   prepareJoin();
   $('googleBtn').addEventListener('click', () => signInWithGoogle());
 
+  let goSolo = false; // after a failed join, the button offers a fire of your own instead
   async function join() {
     if (joined) return;
-    if (fireURL && !mp) {
+    if (fireURL && !mp && !goSolo) {
       const name = (user?.name || nameInput.value).trim();
       if (!name) { nameInput.focus(); $('joinWho').textContent = 'Tell everyone your name first.'; return; }
       store.set('firelight.name', name);
@@ -597,11 +598,13 @@ function startGame(props, clips, models, animals) {
       } catch (e) {
         $('joinBtn').disabled = false;
         $('joinBtn').textContent = 'Sit by your own fire';
+        goSolo = !e.bye || ['full', 'update'].includes(e.bye.why) ? true : goSolo;
         $('joinWho').textContent = e.bye ? e.bye.text : "Couldn't reach the fire. Check the link, or sit by your own fire for now.";
         return;
       }
     }
     joined = true;
+    if (goSolo) setTimeout(() => hint("You're at a fire of your own. The shared fire is offline right now.", 5), 7500);
     sound.start();
     if (sound.muted) sound.setMuted(true);
     $('join').classList.add('gone');
