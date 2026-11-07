@@ -110,10 +110,10 @@ export class Radio {
   emit(type, data = {}) { for (const fn of this.listeners) fn(type, data); }
 
   /** Start a video. `startedAt` (ms since epoch) lets late arrivals join mid-song. */
-  async play(videoId, startedAt = Date.now()) {
+  async play(videoId, startedAt = Date.now(), { remote = false } = {}) {
     this.videoId = videoId;
     this.startedAt = startedAt;
-    this.emit('loading', { videoId });
+    this.emit('loading', { videoId, remote });
     let YT;
     try { YT = await loadYouTubeAPI(); } catch (e) { this.emit('error', { message: 'YouTube could not be reached. Check your connection and try again.' }); return; }
     const start = Math.max(0, (Date.now() - startedAt) / 1000);
@@ -132,7 +132,7 @@ export class Radio {
             this.playing = true;
             this.title = e.target.getVideoData()?.title || '';
             this.emit('playing', { title: this.title });
-          } else if (e.data === S.ENDED) { this.stop(); this.emit('ended'); }
+          } else if (e.data === S.ENDED) { this.stop({ remote: true }); this.emit('ended'); }
           else if (e.data === S.PAUSED) { this.playing = false; this.emit('paused'); }
         },
         onError: (e) => {
@@ -145,11 +145,11 @@ export class Radio {
     });
   }
 
-  stop() {
+  stop({ remote = false } = {}) {
     this.playing = false;
     this.videoId = null;
     try { this.player?.stopVideo(); } catch { /* player not ready */ }
-    this.emit('stopped');
+    this.emit('stopped', { remote });
   }
 
   /** Volume follows the listener's distance from the table. */

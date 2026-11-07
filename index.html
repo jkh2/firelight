@@ -26,6 +26,7 @@
       <span id="mallows" class="none"><b class="mallow-ico"></b><span id="mallowCount">0</span></span>
     </button>
     <div id="hint" role="status"></div>
+    <div id="people" hidden><span class="dot"></span><span id="peopleCount">Just you</span></div>
     <div id="buttons">
       <button id="torchBtn" class="round" aria-label="Torch on or off" title="Torch (F)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c1.6 3.4 4.3 4.9 4.3 8.2a4.3 4.3 0 0 1-8.6 0c0-1.9 1-3 2.1-4 0 1.6.8 2.4 1.6 2.7-.5-2.6 0-4.8.6-6.9z" class="flame"/><path d="M10.6 14.6h2.8l-.6 7h-1.6z" class="stick"/></svg>
@@ -55,6 +56,15 @@
     </div>
   </div>
 
+  <div id="givePanel" role="dialog" aria-label="Give a marshmallow">
+    <div class="sheet">
+      <div class="sheet-head"><h2>Share with <span id="giveName">them</span></h2><button id="giveClose" aria-label="Close">✕</button></div>
+      <button id="giveRoasted" class="primary">Hand over your toasted marshmallow</button>
+      <button id="giveRaw" class="ghost">Give a marshmallow to roast</button>
+      <p id="giveNote" class="status"></p>
+    </div>
+  </div>
+
   <div id="nowPlaying" aria-live="polite">
     <div class="np-head"><span class="np-dot"></span><span id="npTitle">On the radio</span><button id="npOff" aria-label="Turn the radio off">✕</button></div>
     <div class="np-video"><div id="ytPlayer"></div></div>
@@ -79,6 +89,18 @@
       <div class="pick">
         <span class="label">Who are you tonight?</span>
         <div id="looks"></div>
+      </div>
+      <div class="shared-only">
+        <p id="joinFire" class="fire-line">Looking for the fire…</p>
+        <button id="googleBtn" class="google" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h6c-.3 1.4-1 2.5-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c2.9 0 5.4-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.8 0-5.2-1.9-6.1-4.5H2.3v2.8C4.1 20.6 7.8 23 12 23z"/><path fill="#FBBC05" d="M5.9 14.2c-.2-.7-.4-1.4-.4-2.2s.1-1.5.4-2.2V7H2.3C1.5 8.5 1 10.2 1 12s.5 3.5 1.3 5l3.6-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .5 4.1 1.6l3.1-3.1C17.4 2.1 14.9 1 12 1 7.8 1 4.1 3.4 2.3 7l3.6 2.8C6.8 7.3 9.2 5.4 12 5.4z"/></svg>
+          Sign in with Google
+        </button>
+        <div id="joinNameRow" class="name-row">
+          <label for="joinName">Your name at the fire</label>
+          <input id="joinName" type="text" maxlength="24" autocomplete="nickname" placeholder="e.g. Grandpa James" />
+        </div>
+        <p id="joinWho" class="who"></p>
       </div>
       <button id="joinBtn">Join the fire</button>
       <p id="joinStatus" class="status">Gathering firewood…</p>

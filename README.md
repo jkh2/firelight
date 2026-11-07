@@ -4,7 +4,9 @@ A bonfire in the dark that you open from a link. Up to 20 people stand or sit ar
 
 **Play it:** https://firelight-six.vercel.app
 
-This is **Phase 1: the fire, single player.** You can walk the clearing, light your torch, gather twigs, feed the fire from embers up to a towering bonfire, sit in a chair or on a log, and put a song on the radio. Networking (Phase 2), voice (Phase 3), and sign-in (Phase 2/4) come next. See [HANDOFF.md](HANDOFF.md) for the plan and current state.
+**Phase 2 (together)** is built: a small server lets up to 20 people share one fire. See [server/README.md](server/README.md). Until a server is running, the game plays single player.
+
+Phase 1, single player: You can walk the clearing, light your torch, gather twigs, feed the fire from embers up to a towering bonfire, sit in a chair or on a log, and put a song on the radio. Networking (Phase 2), voice (Phase 3), and sign-in (Phase 2/4) come next. See [HANDOFF.md](HANDOFF.md) for the plan and current state.
 
 ## Play
 
@@ -45,6 +47,10 @@ Small touches: stars fade when the fire is bright and come out as it burns low (
 | `src/marshmallow.js` | Hidden crates, the roasting stick, and how a marshmallow toasts |
 | `src/critters.js` | Wolves, fox, deer and fireflies, and how they react to you and your torch |
 | `src/audio.js` | The sound bed, synthesized live with Web Audio (no audio files) |
+| `src/net.js`, `src/multiplayer.js`, `src/remote.js` | Joining a shared fire, keeping in step with it, and showing everyone else |
+| `src/auth.js` | Sign in with Google (through Supabase), when configured |
+| `shared/rules.js` | Rules the game and the server share |
+| `server/` | The game server |
 | `tools/` | Scripts that turned the raw CC0 packs into the small files in `public/models` |
 
 ## Develop

@@ -1,0 +1,9 @@
+{
+  "FIRE_NAME": "Harwood Fire",
+  "PORT": 8787,
+  "ALLOW_GUESTS": "true",
+  "SUPABASE_URL": "",
+  "SUPABASE_ANON_KEY": "",
+  "OWNER_EMAILS": "you@example.com",
+  "ALLOWED_ORIGINS": ""
+}

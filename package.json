@@ -1,15 +1,17 @@
 {
   "name": "firelight",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A bonfire in the dark that you open from a link.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:single": "vite build --mode single",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "npm --prefix server start"
   },
   "license": "MIT",
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "three": "^0.187.0"
   },
   "devDependencies": {

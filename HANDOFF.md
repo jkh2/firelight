@@ -23,6 +23,19 @@ Working:
 - PWA manifest and icon so it installs with "Add to Home Screen"
 - Adaptive resolution if a phone struggles
 
+## Phase 2 (together): built and tested locally, waiting on James's PC
+
+- `server/`: the Node.js game server (see `server/README.md` to run it). It owns the fire's fuel, twigs, crates, seats and radio; saves to `server/saves/`; checks Google sign-in through Supabase once configured; guests with a name until then.
+- `shared/rules.js`: rules both sides share (burn rate, counts, seeded twig spots).
+- `src/net.js`, `src/multiplayer.js`, `src/remote.js`: the connection, the sync, and other people's avatars with name tags (AI partners get a golden ב).
+- `src/auth.js`: "Sign in with Google", switched on by the `VITE_SUPABASE_*` build settings.
+- Invite link: `https://firelight-six.vercel.app/?fire=<tunnel host>`. Without `?fire=`, Firelight stays single player.
+- Tested with two browsers against a local server: avatars move for each other, one shared fire, twig and seat contention, the radio, giving marshmallows both ways, and leaving.
+- Animals are still local to each player.
+- Interface details for Orion: `docs/phase2-interface.md` (my session couldn't post on issue #1).
+
+**Orion's part (from issue #1):** start the server on James's PC, run the quick tunnel, send the link; then Supabase with Google sign-in. Put the two public values into Vercel as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and into `server/config.json` as `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+
 ## Decisions made after the brief
 
 - **Sign-in, not secret links.** James wants people to join with Google (and Facebook later): if the fire has room, you're in. Plan: Supabase Auth with Google first; Facebook after Meta's app review; consider Apple. The game server verifies the session. The fire's owner can kick or ban an account.
@@ -39,7 +52,7 @@ Working:
 ## Next
 
 1. James plays Phase 1 on his phone and PC and judges the feel. Tune from his notes.
-2. Phase 2: Node.js game server (WebSockets) on James's PC behind a Cloudflare Tunnel, Supabase Google sign-in, and sync of avatars, twigs, fire fuel, seats, radio and torch. `Camper` actions become the network messages.
+2. Phase 2: run the server on James's PC with a tunnel; first family fire; then Supabase Google sign-in and ALLOW_GUESTS=false.
 3. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses.
 
 ## Notes for contributors

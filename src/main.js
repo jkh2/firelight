@@ -10,6 +10,9 @@ import { Sound } from './audio.js';
 import { Radio, parseYouTube } from './radio.js';
 import { Crates, Roaster, roastLabel, roastColor, CRATES } from './marshmallow.js';
 import { Critters } from './critters.js';
+import { fireAddress, statusAddress } from './net.js';
+import { joinFire } from './multiplayer.js';
+import { signInAvailable, currentUser, signInWithGoogle } from './auth.js';
 
 const $ = (id) => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches;
@@ -135,17 +138,19 @@ function startGame(props, clips, models, animals) {
   // ---- thrown twigs ---------------------------------------------------------
   const throwGeo = twigGeometry(), throwMat = new THREE.MeshLambertMaterial({ color: 0x9c7a55 });
   const flying = [];
+  /** A twig arcing onto the fire. Someone else's toss (remote) only shows; the server counts it. */
+  function throwTwig(fromPos, { remote = false } = {}) {
+    const m = new THREE.Mesh(throwGeo, throwMat);
+    m.scale.setScalar(1.6);
+    scene.add(m);
+    const to = fire.center.add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.5));
+    const from = fromPos.clone();
+    const dur = 0.45 + from.distanceTo(to) * 0.05;
+    flying.push({ m, from, to, t: 0, dur, remote, spin: new THREE.Vector3(Math.random() * 9, Math.random() * 4, Math.random() * 9) });
+    if (!remote) sound.whoosh();
+  }
   me.on((type, d) => {
-    if (type === 'release') {
-      const m = new THREE.Mesh(throwGeo, throwMat);
-      m.scale.setScalar(1.6);
-      scene.add(m);
-      const to = fire.center.add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.5));
-      const from = d.from.clone();
-      const dur = 0.45 + from.distanceTo(to) * 0.05;
-      flying.push({ m, from, to, t: 0, dur, spin: new THREE.Vector3(Math.random() * 9, Math.random() * 4, Math.random() * 9) });
-      sound.whoosh();
-    }
+    if (type === 'release') throwTwig(d.from);
     if (type === 'picked') { sound.snap(); updateTwigHud(); if (!seen.picked) { seen.picked = true; hint(touch ? 'Carry up to five. Tap the fire to toss one on.' : 'Carry up to five. Click the fire to toss one on.'); } }
     if (type === 'release') updateTwigHud();
     if (type === 'needTwigs') hint(me.torch ? 'You have no twigs. Look for them in the dark.' : `You have no twigs. Light your torch (${touch ? 'flame button' : 'F'}) and look in the dark.`);
@@ -168,6 +173,9 @@ function startGame(props, clips, models, animals) {
     if (type === 'received') hint(d.what === 'roasted' ? `${d.from} handed you a toasted marshmallow.` : `${d.from} gave you a marshmallow to roast.`);
     // Animals
     if (type === 'foxStole') { updateTwigHud(); hint('A fox darted in and snatched a twig! Keep your torch lit out in the dark.', 5); }
+    if (type === 'tooFar') hint(`Get a little closer to ${d.to} to hand it over.`, 3);
+    if (type === 'theirPocketsFull') hint(`${d.to}'s pockets are full.`, 3);
+    if (type === 'gave') { closeGive(); hint(d.what === 'roasted' ? `You handed ${d.to} your marshmallow.` : `You gave ${d.to} a marshmallow to roast.`, 3); updateTwigHud(); }
     if (type === 'foxScared') { if (!seen.fox) { seen.fox = true; hint('Something scurried off into the dark.', 3); } }
   });
   function updateFlying(dt) {
@@ -181,7 +189,8 @@ function startGame(props, clips, models, animals) {
       if (k >= 1) {
         scene.remove(f.m);
         flying.splice(i, 1);
-        fire.addFuel(1);
+        if (f.remote) { fire.flare = 1; fire.burst(28 + Math.round(fire.size * 30)); }
+        else fire.addFuel(1);
         sound.landed(fire.size);
       }
     }
@@ -261,8 +270,10 @@ function startGame(props, clips, models, animals) {
   function pick(clientX, clientY) {
     ndc.set((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hits = ray.intersectObjects([twigs.hits, fireHit, radio.group, crates.group, world.seatGroup, world.ground], true);
+    const people = mp ? [...mp.remotes.values()].map((r) => r.avatar.root) : [];
+    const hits = ray.intersectObjects([...people, twigs.hits, fireHit, radio.group, crates.group, world.seatGroup, world.ground], true);
     for (const h of hits) {
+      if (h.object.userData.player) return { type: 'person', id: h.object.userData.player };
       if (h.object === twigs.hits) { if (twigs.items[h.instanceId].present) return { type: 'twig', id: h.instanceId }; continue; }
       if (h.object === fireHit) return { type: 'fire' };
       if (h.object.userData.radio) return { type: 'radio' };
@@ -279,6 +290,7 @@ function startGame(props, clips, models, animals) {
     else if (target.type === 'seat') me.sit(target.id);
     else if (target.type === 'radio') me.useRadio();
     else if (target.type === 'crate') me.openCrate(target.id);
+    else if (target.type === 'person') openGive(target.id);
     else if (target.type === 'ground') {
       if (me.mode === 'sitting') me.stand();
       else { me.walkTo(target.point.x, target.point.z); showMarker(target.point); }
@@ -413,6 +425,7 @@ function startGame(props, clips, models, animals) {
     roaster.update(dt);
     critters.update(dt, camera);
     updateRoastChip();
+    mp?.update(dt);
     world.sky.update(dt, time, Math.min(1, fire.size * 1.15));
     world.hemi.intensity = 0.32 + 0.4 * (1 - Math.min(1, fire.size * 1.4)); // moonlight reads more when the fire is low
     if (markerT > 0) { markerT = Math.max(0, markerT - dt * 1.4); marker.material.opacity = markerT * 0.8; marker.scale.setScalar(1 + (1 - markerT) * 0.6); }
@@ -442,9 +455,83 @@ function startGame(props, clips, models, animals) {
   }
   requestAnimationFrame(frame);
 
+  // ---- give a marshmallow to someone -----------------------------------------
+  const givePanel = $('givePanel');
+  let giveTo = null;
+  function openGive(id) {
+    const r = mp?.remotes.get(id);
+    if (!r) return;
+    giveTo = id;
+    $('giveName').textContent = r.name;
+    const roasted = me.stick?.mallow && !me.stick.mallow.burning;
+    $('giveRoasted').disabled = !roasted;
+    $('giveRaw').disabled = me.mallows <= 0;
+    $('giveNote').textContent = roasted || me.mallows > 0 ? `Stand close to ${r.name} to hand it over.` : 'Find marshmallows in the crates hidden in the woods.';
+    givePanel.classList.add('open');
+  }
+  function closeGive() { givePanel.classList.remove('open'); giveTo = null; }
+  $('giveRoasted').addEventListener('click', () => { const p = mp?.personFor(giveTo); if (p) me.give(p, 'roasted'); });
+  $('giveRaw').addEventListener('click', () => { const p = mp?.personFor(giveTo); if (p) me.give(p, 'raw'); });
+  $('giveClose').addEventListener('click', closeGive);
+  givePanel.addEventListener('click', (e) => { if (e.target === givePanel) closeGive(); });
+
   // ---- join -----------------------------------------------------------------
-  function join() {
+  const fireURL = fireAddress();
+  let mp = null;
+  let user = null;
+  const nameInput = $('joinName');
+  nameInput.value = store.get('firelight.name', '');
+  function showCount(n, name) {
+    $('people').hidden = false;
+    $('peopleCount').textContent = n === 1 ? 'Just you' : `${n} at the fire`;
+    if (name) $('people').title = name;
+  }
+
+  async function prepareJoin() {
+    if (!fireURL) return; // single player: the card stays as it is
+    $('join').classList.add('shared');
+    $('joinBtn').textContent = 'Join the fire';
+    if (signInAvailable) {
+      user = await currentUser().catch(() => null);
+      $('googleBtn').hidden = !!user;
+      if (user) $('joinWho').textContent = `Signed in as ${user.name}`;
+    }
+    $('joinNameRow').hidden = !!user;
+    try {
+      const r = await fetch(statusAddress(fireURL), { cache: 'no-store' });
+      const st = await r.json();
+      $('joinFire').textContent = st.people ? `${st.fire}: ${st.people} ${st.people === 1 ? 'person' : 'people'} by the fire` : `${st.fire}: nobody here yet`;
+      if (!st.guests && !user) { $('joinNameRow').hidden = true; $('joinBtn').disabled = true; $('joinWho').textContent = 'This fire asks you to sign in with Google.'; }
+    } catch {
+      $('joinFire').textContent = "Can't reach that fire right now. You can still sit by one of your own.";
+    }
+  }
+  prepareJoin();
+  $('googleBtn').addEventListener('click', () => signInWithGoogle());
+
+  async function join() {
     if (joined) return;
+    if (fireURL && !mp) {
+      const name = (user?.name || nameInput.value).trim();
+      if (!name) { nameInput.focus(); $('joinWho').textContent = 'Tell everyone your name first.'; return; }
+      store.set('firelight.name', name);
+      me.name = name;
+      $('joinBtn').disabled = true;
+      $('joinBtn').textContent = 'Walking to the fire…';
+      try {
+        mp = await joinFire(fireURL, {
+          scene, me, fire, twigs, crates, seats: world.seats, radio, sound, hint, throwTwig, models, clips, torchModel,
+          hello: { name, look, token: user?.token },
+          onCount: showCount, onInventory: updateTwigHud,
+        });
+        window.__firelight.mp = mp;
+      } catch (e) {
+        $('joinBtn').disabled = false;
+        $('joinBtn').textContent = 'Sit by your own fire';
+        $('joinWho').textContent = e.bye ? e.bye.text : "Couldn't reach the fire. Check the link, or sit by your own fire for now.";
+        return;
+      }
+    }
     joined = true;
     sound.start();
     if (sound.muted) sound.setMuted(true);
@@ -454,6 +541,7 @@ function startGame(props, clips, models, animals) {
     setTimeout(() => hint(touch ? 'Light your torch and gather twigs in the dark. Tap the fire to feed it.' : 'Light your torch (F) and gather twigs in the dark. Click the fire to feed it.', 6), 1200);
   }
   $('joinBtn').addEventListener('click', join);
+  nameInput.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') join(); });
 
   function setLook(key) {
     if (key === look) return;

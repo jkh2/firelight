@@ -7,13 +7,8 @@ import * as THREE from 'three';
 // embers brings it back.
 // ---------------------------------------------------------------------------
 
-export const FIRE = {
-  maxFuel: 80,         // fuel cap; s reaches 1 at bonfireFuel and ~1.15 at the cap
-  bonfireFuel: 60,
-  burnBase: 0.012,     // twigs per second at any size
-  burnPerFuel: 0.0045, // extra burn per twig of fuel (big fires eat fast)
-  startFuel: 8,
-};
+import { FIRE, burn } from '../shared/rules.js';
+export { FIRE };
 
 /** Fuel to visual size: 0 = embers, 1 = towering bonfire. */
 export function sizeFromFuel(fuel) {
@@ -292,7 +287,7 @@ export class Fire {
   update(dt) {
     this.time += dt;
     // Burn
-    if (this.fuel > 0) this.fuel = Math.max(0, this.fuel - dt * (FIRE.burnBase + FIRE.burnPerFuel * this.fuel));
+    this.fuel = burn(this.fuel, dt);
     const tgt = this.target;
     // Growth catches over a couple of seconds; shrinking follows the fuel directly
     this.size += (tgt - this.size) * (1 - Math.exp(-dt * (tgt > this.size ? 0.9 : 3)));

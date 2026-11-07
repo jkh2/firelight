@@ -50,7 +50,8 @@ export function roastColor(d, out = new THREE.Color()) {
   return out.copy(BROWN).lerp(CHAR, THREE.MathUtils.clamp((d - 0.78) / 0.3, 0, 1));
 }
 
-export const CRATES = { count: 5, minR: 8.5, maxR: 16.5, refillMin: 90, refillMax: 160, give: [2, 3], carryMax: 6 };
+import { CRATES, seeded } from '../shared/rules.js';
+export { CRATES };
 
 /** Small wooden crates of marshmallows hidden in the dark. Open one, take what's inside; it refills later. */
 export class Crates {
@@ -66,22 +67,23 @@ export class Crates {
     const mallowGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.045, 10);
 
     // Hide them beside trees and rocks so you have to look
+    const rand = seeded(424242); // every player hides the crates in the same places
     const anchors = colliders.filter((c) => c.r >= 0.45 && c.seat == null && !c.radio).map((c) => ({ c, r: Math.hypot(c.x, c.z) }))
       .filter((a) => a.r > CRATES.minR && a.r < CRATES.maxR);
     for (let i = 0; i < CRATES.count; i++) {
       let x = 0, z = 0;
       for (let tries = 0; tries < 40; tries++) {
-        const a = anchors.length ? anchors[Math.floor(Math.random() * anchors.length)] : null;
-        const ang = Math.random() * Math.PI * 2;
+        const a = anchors.length ? anchors[Math.floor(rand() * anchors.length)] : null;
+        const ang = rand() * Math.PI * 2;
         if (a) { x = a.c.x + Math.cos(ang) * (a.c.r + 0.55); z = a.c.z + Math.sin(ang) * (a.c.r + 0.55); }
-        else { const r = CRATES.minR + Math.random() * (CRATES.maxR - CRATES.minR); x = Math.cos(ang) * r; z = Math.sin(ang) * r; }
+        else { const r = CRATES.minR + rand() * (CRATES.maxR - CRATES.minR); x = Math.cos(ang) * r; z = Math.sin(ang) * r; }
         const sector = Math.atan2(z, x);
         const spread = this.items.every((it) => Math.abs(((Math.atan2(it.z, it.x) - sector + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 0.8);
         if (!blocked(x, z, 0.35) && spread) break;
       }
       const g = new THREE.Group();
       g.position.set(x, 0, z);
-      g.rotation.y = Math.random() * Math.PI * 2;
+      g.rotation.y = rand() * Math.PI * 2;
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.26, 0.32), wood);
       body.position.y = 0.13;
       g.add(body);
@@ -122,14 +124,20 @@ export class Crates {
     const it = this.items[id];
     if (!it || !it.full) return 0;
     it.full = false;
+    this.onTake?.(id);
     it.refillAt = this.time + CRATES.refillMin + Math.random() * (CRATES.refillMax - CRATES.refillMin);
     return CRATES.give[0] + Math.floor(Math.random() * (CRATES.give[1] - CRATES.give[0] + 1));
   }
 
+  /** Someone else emptied crate id (multiplayer). */
+  markEmpty(id) { const it = this.items[id]; if (it) it.full = false; }
+  /** The server restocked crate id (multiplayer). */
+  refill(id) { const it = this.items[id]; if (it) it.full = true; }
+
   update(dt) {
     this.time += dt;
     for (const it of this.items) {
-      if (!it.full && this.time >= it.refillAt) it.full = true;
+      if (!this.networked && !it.full && this.time >= it.refillAt) it.full = true;
       // The lid stands open while a crate is empty, and closes again when it refills
       const want = it.full ? 0 : 1;
       it.open += (want - it.open) * (1 - Math.exp(-dt * 5));
@@ -141,7 +149,8 @@ export class Crates {
 
 /** The stick in your hand and the marshmallow on its end. Drives the roast. */
 export class Roaster {
-  constructor(scene, camper, fire) {
+  constructor(scene, camper, fire, { remote = false } = {}) {
+    this.remote = remote; // someone else's stick: show it, their browser does the roasting
     this.camper = camper;
     this.fire = fire;
     this.group = new THREE.Group();
@@ -191,6 +200,7 @@ export class Roaster {
     this.mallow.visible = !!m;
     if (!m) { this.flames.mesh.visible = false; return; }
 
+    if (this.remote) { this.paint(m); return; }
     // Heat: closer to the flames and a bigger fire both toast faster
     const d = Math.hypot(this.tip.x, this.tip.z);
     const reach = MALLOW.heatReach + this.fire.size * 0.8;
@@ -205,9 +215,12 @@ export class Roaster {
       if (m.doneness > MALLOW.catchAt && heat > 0.35 && Math.random() < dt * heat * 1.4) { m.burning = true; c.emit('mallowCaught'); }
     }
     if (!c.stick.mallow) return;
+    this.paint(m);
+  }
 
+  paint(m) {
     roastColor(m.doneness, this.mallowMat.color);
-    this.mallowMat.emissiveIntensity = m.burning ? 0.9 : heat * 0.25;
+    this.mallowMat.emissiveIntensity = m.burning ? 0.9 : (m.heat ?? 0) * 0.25;
     // A marshmallow puffs up a little as it warms
     const puff = 1 + Math.min(0.25, m.doneness * 0.3);
     this.mallow.scale.set(puff, 1 + Math.min(0.15, m.doneness * 0.2), puff);

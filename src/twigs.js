@@ -7,7 +7,8 @@ import { groundY } from './world.js';
 // else after a while. A larger invisible hit sphere makes them easy to tap.
 // ---------------------------------------------------------------------------
 
-export const TWIGS = { count: 48, carryMax: 5, regrowMin: 40, regrowMax: 95, minR: 4.6, maxR: 16.5 };
+import { TWIGS, twigSpot } from '../shared/rules.js';
+export { TWIGS };
 
 export function twigGeometry() {
   const main = new THREE.CylinderGeometry(0.018, 0.026, 0.62, 5);
@@ -30,23 +31,34 @@ export class Twigs {
     this.hits = new THREE.InstancedMesh(new THREE.SphereGeometry(0.42, 6, 4), new THREE.MeshBasicMaterial({ visible: false }), TWIGS.count);
     this.items = [];
     for (let i = 0; i < TWIGS.count; i++) {
-      this.items.push({ id: i, x: 0, z: 0, yaw: 0, present: true, regrowAt: 0 });
+      this.items.push({ id: i, x: 0, z: 0, yaw: 0, present: true, regrowAt: 0, gen: 0 });
       this.scatter(i);
     }
     scene.add(this.mesh, this.hits);
     this.time = 0;
   }
 
+  /** Lay twig i at its spot for its current life. Same spot for every player. */
   scatter(i) {
     const it = this.items[i];
-    for (let tries = 0; tries < 20; tries++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = TWIGS.minR + Math.pow(Math.random(), 0.75) * (TWIGS.maxR - TWIGS.minR);
-      it.x = Math.cos(a) * r; it.z = Math.sin(a) * r;
-      if (!this.blocked(it.x, it.z, 0.4)) break;
-    }
-    it.yaw = Math.random() * Math.PI * 2;
+    Object.assign(it, twigSpot(i, it.gen, this.blocked));
     it.present = true;
+    this.write(i);
+  }
+
+  /** The server says twig i grew back (multiplayer). */
+  respawn(i, gen) {
+    const it = this.items[i];
+    if (!it) return;
+    it.gen = gen;
+    this.scatter(i);
+  }
+
+  /** Someone else picked twig i up (multiplayer). */
+  hide(i) {
+    const it = this.items[i];
+    if (!it || !it.present) return;
+    it.present = false;
     this.write(i);
   }
 
@@ -67,6 +79,7 @@ export class Twigs {
     it.present = false;
     it.regrowAt = this.time + TWIGS.regrowMin + Math.random() * (TWIGS.regrowMax - TWIGS.regrowMin);
     this.write(i);
+    this.onTake?.(i);
     return true;
   }
 
@@ -82,6 +95,7 @@ export class Twigs {
 
   update(dt) {
     this.time += dt;
-    for (const it of this.items) if (!it.present && this.time >= it.regrowAt) this.scatter(it.id);
+    if (this.networked) return; // the server decides when twigs grow back
+    for (const it of this.items) if (!it.present && this.time >= it.regrowAt) { it.gen++; this.scatter(it.id); }
   }
 }
