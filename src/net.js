@@ -61,8 +61,10 @@ export class Net {
       ws.onclose = () => {
         clearTimeout(timer);
         if (!settled) { settled = true; reject(new Error('closed')); return; }
+        // A goodbye from the fire (removed, full, fire put out) keeps its own message
+        if (this.closedForGood) return;
         this.emit('lost');
-        if (!this.closedForGood) this.reconnect();
+        this.reconnect();
       };
       ws.onerror = () => { /* onclose follows */ };
     });

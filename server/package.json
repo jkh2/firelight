@@ -8,8 +8,11 @@
   "scripts": {
     "start": "node index.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "ws": "^8.18.0"
   },
   "license": "MIT"

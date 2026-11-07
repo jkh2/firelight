@@ -38,6 +38,10 @@ const CONFIG = {
   owners: String(env('OWNER_EMAILS', '')).toLowerCase().split(',').map((s) => s.trim()).filter(Boolean),
   // Browsers allowed to connect (comma separated origins); empty allows any
   origins: String(env('ALLOWED_ORIGINS', '')).split(',').map((s) => s.trim()).filter(Boolean),
+  // The control panel talks to the server through a private door: a second port that only
+  // this computer can reach, locked with a fresh key each time the panel starts the server.
+  adminPort: Number(env('ADMIN_PORT', 8788)),
+  adminToken: process.env.ADMIN_TOKEN || '',
 };
 const authOn = !!(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
 
@@ -185,13 +189,19 @@ function act(p, m) {
       if (!p.owner) return;
       const who = players.get(String(m.id));
       if (!who || who === p) return;
-      if (m.ban && who.userId) { bans.add(who.userId); writeFileSync(BANS, JSON.stringify([...bans])); }
-      send(who, { t: 'bye', why: m.ban ? 'banned' : 'kicked', text: m.ban ? "You can't join this fire." : 'The host asked you to leave the fire.' });
-      who.ws.close();
+      removePlayer(who, !!m.ban);
       return;
     }
     default:
   }
+}
+
+/** Ask someone to leave; with ban, their Google account can't come back. Guests can be removed but not banned. */
+function removePlayer(who, ban) {
+  if (ban && who.userId) { bans.add(who.userId); writeFileSync(BANS, JSON.stringify([...bans])); }
+  send(who, { t: 'bye', why: ban && who.userId ? 'banned' : 'kicked', text: ban && who.userId ? "You can't join this fire." : 'The host asked you to leave the fire.' });
+  who.ws.close();
+  console.log(`${who.name} was ${ban && who.userId ? 'banned' : 'removed'} by the host.`);
 }
 
 function freeSeat(p) {
@@ -263,7 +273,44 @@ setInterval(() => {
   }
 }, 100);
 
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { save(); console.log('Saved the fire. Goodnight.'); process.exit(0); });
+function shutdown() {
+  save();
+  for (const p of players.values()) send(p, { t: 'bye', why: 'closing', text: "The host has put the fire out for now. Come back soon." });
+  console.log('Saved the fire. Goodnight.');
+  setTimeout(() => process.exit(0), 300);
+}
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGBREAK', 'SIGHUP']) process.on(sig, shutdown);
+
+// ---- the private door for the control panel ----------------------------------------
+if (CONFIG.adminToken) {
+  const admin = http.createServer((req, res) => {
+    const reply = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
+    if (req.headers['x-firelight-token'] !== CONFIG.adminToken) return reply(403, { error: 'forbidden' });
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      let m = {}; try { m = body ? JSON.parse(body) : {}; } catch { /* empty */ }
+      if (req.method === 'GET' && req.url === '/people') {
+        return reply(200, {
+          fire: CONFIG.fireName, fuel: world.fuel, max: CONFIG.maxPlayers, radio: world.radio,
+          people: [...players.values()].filter((p) => p.joined).map((p) => ({
+            id: p.id, name: p.name, look: p.look, ai: p.ai, signedIn: !!p.userId, owner: p.owner,
+            sitting: !!p.st?.m, torch: !!p.st?.o, seat: p.st?.s ?? -1, x: p.st?.x ?? 0, z: p.st?.z ?? 0, carrying: p.st?.c ?? 0,
+          })),
+        });
+      }
+      if (req.method === 'POST' && req.url === '/remove') {
+        const who = players.get(String(m.id));
+        if (!who) return reply(404, { error: 'not here' });
+        removePlayer(who, !!m.ban);
+        return reply(200, { ok: true });
+      }
+      if (req.method === 'POST' && req.url === '/shutdown') { reply(200, { ok: true }); shutdown(); return; }
+      reply(404, { error: 'unknown' });
+    });
+  });
+  admin.listen(CONFIG.adminPort, '127.0.0.1');
+}
 
 server.listen(CONFIG.port, () => {
   console.log(`Firelight server: "${CONFIG.fireName}" on port ${CONFIG.port}`);

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Firelight Host</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 6c4 12 16 18 16 32a16 16 0 0 1-32 0c0-8 4-12 8-16 0 6 3 9 6 10-2-10 0-18 2-26z' fill='%23ff8a3a'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* A host's panel by the fire: one warm card that is the fire, two quiet cards below it. */
+  :root {
+    color-scheme: dark;
+    --night: #0c0a09;
+    --panel: #16110e;
+    --panel-2: #1d1612;
+    --line: rgba(255, 170, 100, 0.16);
+    --ink: #f3e6d6;
+    --ink-dim: #a8977f;
+    --ember: #ff8a3a;
+    --ember-soft: #ffc48a;
+    --ok: #86d493;
+    --danger: #ec6e55;
+    --gold: #ffc24a;
+    --display: 'Fraunces', Georgia, serif;
+    --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--night); color: var(--ink); }
+  body { font: 15px/1.5 var(--body); min-height: 100vh;
+    background: radial-gradient(90% 60% at 50% -10%, rgba(255, 120, 40, 0.12), transparent 60%), var(--night); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 28px max(16px, env(safe-area-inset-left)) 48px max(16px, env(safe-area-inset-right)); display: grid; gap: 18px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .brand { font: 600 26px/1 var(--display); letter-spacing: -0.01em;
+    background: linear-gradient(180deg, #ffe2b8, #ff9a4a 70%, #d9552a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand small { font: 500 13px var(--body); color: var(--ink-dim); -webkit-text-fill-color: var(--ink-dim); margin-left: 8px; letter-spacing: 0.04em; }
+  .fire-name { font: 500 14px var(--body); color: var(--ink-dim); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 20px; min-width: 0; }
+  .label { font: 600 11.5px var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); margin: 0 0 12px; }
+
+  /* The hearth: the fire itself is the status */
+  .hearth { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: center; padding: 22px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
+  .flame-box { position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 16px; overflow: hidden; background: #0a0807; }
+  #flame { width: 100%; height: 100%; display: block; }
+  .status h1 { font: 600 34px/1.1 var(--display); margin: 0 0 6px; text-wrap: balance; }
+  .status p { margin: 0 0 18px; color: var(--ink-dim); max-width: 46ch; }
+  .meter { display: flex; align-items: center; gap: 10px; margin: -6px 0 18px; font-size: 13px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .meter .bar { flex: 1; max-width: 220px; height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+  .meter .fill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #a83a14, var(--ember), var(--ember-soft)); transition: width 0.8s; }
+  .big { font: 600 17px var(--body); border: 0; border-radius: 14px; padding: 14px 26px; cursor: pointer; color: #2a1206;
+    background: linear-gradient(180deg, #ffc98a, #ff8a3a); box-shadow: 0 10px 30px rgba(255, 120, 40, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5); transition: transform 0.12s, opacity 0.2s; }
+  .big:active { transform: scale(0.98); }
+  .big.out { color: var(--ink); background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 190, 140, 0.25); }
+  .big:disabled { opacity: 0.55; cursor: default; }
+  .big:focus-visible, .btn:focus-visible { outline: 2px solid var(--ember-soft); outline-offset: 3px; }
+  .error { display: none; margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; background: rgba(236, 110, 85, 0.12); border: 1px solid rgba(236, 110, 85, 0.35); color: #ffc2b4; font-size: 14px; }
+  .error.show { display: block; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  /* Invite */
+  .link { font: 500 13px/1.5 var(--mono); color: var(--ember-soft); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; word-break: break-all; user-select: all; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .btn { font: 600 13.5px var(--body); border-radius: 10px; padding: 9px 14px; cursor: pointer; color: var(--ink); background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 190, 140, 0.22); }
+  .btn.warm { color: #2a1206; background: linear-gradient(180deg, #ffc98a, #ff8a3a); border-color: transparent; }
+  .btn.danger { color: #ffc2b4; border-color: rgba(236, 110, 85, 0.4); }
+  .btn.small { padding: 6px 10px; font-size: 12.5px; }
+  .invite-body { display: grid; grid-template-columns: 1fr 132px; gap: 16px; align-items: start; }
+  .qr { width: 132px; height: 132px; border-radius: 12px; background: #fff7ec; padding: 6px; display: grid; place-items: center; }
+  .qr img { width: 100%; height: 100%; display: block; }
+  .note { font-size: 12.5px; color: var(--ink-dim); margin: 10px 0 0; }
+  .empty { color: var(--ink-dim); font-size: 14px; margin: 0; }
+
+  /* Around the fire: a view from above, then the list */
+  .around { display: grid; gap: 14px; }
+  .map { width: 100%; max-width: 280px; aspect-ratio: 1; margin: 0 auto; display: block; }
+  .people { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .person { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 190, 140, 0.08); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .who { min-width: 0; }
+  .who b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who span { font-size: 12.5px; color: var(--ink-dim); }
+  .tag { font: 600 10.5px var(--body); letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; margin-left: 6px; vertical-align: 1px;
+    color: var(--ink-dim); border: 1px solid rgba(255, 190, 140, 0.2); }
+  .tag.ai { color: var(--gold); border-color: rgba(255, 194, 74, 0.45); }
+  .actions { display: flex; gap: 6px; align-items: center; }
+  .confirm { font-size: 12.5px; color: var(--ink-dim); }
+
+  details { color: var(--ink-dim); }
+  summary { cursor: pointer; font-size: 13px; }
+  pre { font: 12px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 12px 14px; margin: 10px 0 0; }
+  footer { text-align: center; font-size: 12.5px; color: var(--ink-dim); }
+
+  @media (max-width: 720px) {
+    .hearth { grid-template-columns: 1fr; text-align: center; }
+    .flame-box { max-width: 220px; margin: 0 auto; }
+    .status p, .meter { margin-left: auto; margin-right: auto; justify-content: center; }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 420px) { .invite-body { grid-template-columns: 1fr; } .qr { margin: 0 auto; } }
+  @media (prefers-reduced-motion: reduce) { .meter .fill { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Firelight <small>HOST</small></div>
+    <div class="fire-name" id="fireName"></div>
+  </header>
+
+  <section class="card hearth" aria-live="polite">
+    <div class="flame-box"><canvas id="flame" width="440" height="440" aria-hidden="true"></canvas></div>
+    <div class="status">
+      <div class="error" id="error"></div>
+      <h1 id="title">The fire is out</h1>
+      <p id="sub">Light it, then share the invite link with family and friends.</p>
+      <div class="meter" id="meter" hidden><span id="sizeLabel">Cozy fire</span><div class="bar"><div class="fill" id="fill"></div></div><span id="fuelLabel"></span></div>
+      <button class="big" id="toggle">Light the fire</button>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <p class="label">Invite</p>
+      <div id="inviteOff"><p class="empty">The invite link appears here once the fire is lit.</p></div>
+      <div id="inviteOn" hidden>
+        <div class="invite-body">
+          <div>
+            <div class="link" id="link"></div>
+            <div class="row">
+              <button class="btn warm" id="copyLink">Copy link</button>
+              <button class="btn" id="copyInvite">Copy an invitation</button>
+            </div>
+          </div>
+          <div class="qr" title="Point a phone camera here to join"><img id="qr" alt="QR code for the invite link" /></div>
+        </div>
+        <p class="note" id="linkNote">This link changes each time you light the fire. Send the new one each time.</p>
+      </div>
+    </section>
+
+    <section class="card around">
+      <p class="label" id="aroundLabel">Around the fire</p>
+      <svg class="map" id="map" viewBox="-12.5 -12.5 25 25" role="img" aria-label="The clearing seen from above, with everyone's position"></svg>
+      <ul class="people" id="people"></ul>
+      <p class="empty" id="nobody">Nobody here yet.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <details>
+      <summary>Behind the scenes</summary>
+      <pre id="log">Nothing yet.</pre>
+    </details>
+  </section>
+
+  <footer>Keep the black Firelight window open while the fire is lit. Closing it puts the fire out, and it saves first.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let st = { state: 'off', people: [] };
+let fuelShown = 0, busy = false;
+
+// ---- talking to the panel's helper ----------------------------------------------
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'x-firelight': 'panel', 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  return r.json().catch(() => ({}));
+}
+async function refresh() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    st = await r.json();
+    render();
+  } catch {
+    $('title').textContent = 'The panel lost its helper';
+    $('sub').textContent = 'The black Firelight window was closed. Double-click Firelight to open it again.';
+    $('toggle').disabled = true;
+  }
+}
+
+// ---- drawing the page -------------------------------------------------------------
+const sizeOf = (fuel) => Math.min(1.15, Math.sqrt(Math.max(0, fuel) / 60));
+function sizeName(fuel) {
+  if (fuel == null) return '';
+  if (fuel < 0.05) return 'Glowing embers';
+  const s = sizeOf(fuel);
+  return s < 0.25 ? 'Small fire' : s < 0.5 ? 'Cozy fire' : s < 0.8 ? 'Big fire' : 'Towering bonfire';
+}
+function since(ms) {
+  const m = Math.floor((Date.now() - ms) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
+}
+const COLORS = { rogue_hooded: '#6fae6a', rogue: '#c98a4a', barbarian: '#d0634a', knight: '#8aa3c8', mage: '#a07ed0' };
+
+function render() {
+  const on = st.state === 'on';
+  $('fireName').textContent = st.fire || '';
+  document.title = on ? `🔥 ${st.fire} · Firelight Host` : 'Firelight Host';
+  const err = $('error'); err.textContent = st.error || ''; err.classList.toggle('show', !!st.error);
+
+  const t = $('toggle');
+  if (!busy) {
+    t.disabled = st.state === 'starting' || st.state === 'stopping';
+    t.textContent = { off: 'Light the fire', starting: 'Lighting…', on: 'Put it out', stopping: 'Putting it out…' }[st.state];
+    t.classList.toggle('out', on);
+  }
+  const n = st.people.length;
+  $('title').textContent = { off: 'The fire is out', starting: 'Lighting the fire…', on: 'The fire is lit', stopping: 'Putting it out…' }[st.state];
+  $('sub').textContent = {
+    off: 'Light it, then share the invite link with family and friends.',
+    starting: 'Opening a way in for your guests. This takes a few seconds.',
+    on: `Burning for ${since(st.startedAt)} · ${n === 0 ? 'nobody here yet' : n === 1 ? '1 person gathered' : `${n} people gathered`}`,
+    stopping: 'Saving the fire so it picks up where it left off.',
+  }[st.state];
+  $('meter').hidden = !on || st.fuel == null;
+  if (on && st.fuel != null) {
+    $('sizeLabel').textContent = sizeName(st.fuel);
+    $('fill').style.width = `${Math.round(Math.min(1, sizeOf(st.fuel)) * 100)}%`;
+    $('fuelLabel').textContent = `${st.fuel.toFixed(1)} twigs`;
+  }
+
+  // Invite
+  $('inviteOn').hidden = !(on && st.invite);
+  $('inviteOff').hidden = on && !!st.invite;
+  if (on && st.invite && $('link').textContent !== st.invite) {
+    $('link').textContent = st.invite;
+    $('qr').src = `/api/qr?${Date.now()}`;
+  }
+  $('linkNote').textContent = st.permanent ? 'This link stays the same every time you light the fire.' : 'This link changes each time you light the fire. Send the new one each time.';
+
+  renderPeople();
+  drawMap();
+  const log = st.log?.length ? st.log.join('\n') : 'Nothing yet.';
+  if ($('log').textContent !== log) { $('log').textContent = log; $('log').scrollTop = 1e6; }
+}
+
+let confirming = null;
+function renderPeople() {
+  const ul = $('people');
+  const on = st.state === 'on';
+  $('nobody').hidden = st.people.length > 0;
+  $('nobody').textContent = on ? 'Nobody here yet. Send the invite link.' : 'Light the fire to see who gathers.';
+  $('aroundLabel').textContent = st.people.length ? `Around the fire · ${st.people.length} of ${st.max}` : 'Around the fire';
+  ul.innerHTML = '';
+  for (const p of st.people) {
+    const li = document.createElement('li'); li.className = 'person';
+    const doing = [p.sitting ? 'sitting by the fire' : 'wandering', p.torch ? 'torch lit' : '', p.carrying ? `${p.carrying} twig${p.carrying > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = COLORS[p.look] || '#ccc';
+    const who = document.createElement('div'); who.className = 'who';
+    const b = document.createElement('b'); b.textContent = p.name;
+    const tag = (txt, cls = '') => { const s = document.createElement('span'); s.className = `tag ${cls}`; s.textContent = txt; b.appendChild(s); };
+    if (p.ai) tag('ב AI', 'ai');
+    if (p.owner) tag('Host');
+    tag(p.signedIn ? 'Google' : 'Guest');
+    const sm = document.createElement('span'); sm.textContent = doing;
+    who.append(b, sm);
+    const act = document.createElement('div'); act.className = 'actions';
+    if (confirming?.id === p.id) {
+      const q = document.createElement('span'); q.className = 'confirm';
+      q.textContent = confirming.ban ? 'Ban for good?' : 'Ask them to leave?';
+      const yes = button(confirming.ban ? 'Ban' : 'Remove', 'btn small danger', async () => { await post('/api/remove', { id: p.id, ban: confirming.ban }); confirming = null; refresh(); });
+      const no = button('Cancel', 'btn small', () => { confirming = null; renderPeople(); });
+      act.append(q, yes, no);
+    } else if (!p.owner) {
+      act.append(button('Remove', 'btn small', () => { confirming = { id: p.id, ban: false }; renderPeople(); }));
+      if (p.signedIn) act.append(button('Ban', 'btn small danger', () => { confirming = { id: p.id, ban: true }; renderPeople(); }));
+    }
+    li.append(dot, who, act); ul.append(li);
+  }
+}
+function button(text, cls, fn) { const b = document.createElement('button'); b.className = cls; b.textContent = text; b.addEventListener('click', fn); return b; }
+
+// The clearing from above: the fire, the ring of seats, and everyone in it
+function drawMap() {
+  const svg = $('map');
+  const on = st.state === 'on';
+  const s = on && st.fuel != null ? sizeOf(st.fuel) : 0;
+  const glow = on ? 2.2 + s * 9 : 0;
+  let html = `<defs><radialGradient id="g"><stop offset="0" stop-color="#ffb35a" stop-opacity="${on ? 0.9 : 0}"/><stop offset="0.4" stop-color="#ff6a20" stop-opacity="${on ? 0.35 : 0}"/><stop offset="1" stop-color="#ff6a20" stop-opacity="0"/></radialGradient></defs>`;
+  html += `<circle r="12" fill="#100c0a" stroke="rgba(255,170,100,0.12)" stroke-width="0.12"/>`;
+  html += `<circle r="${glow.toFixed(2)}" fill="url(#g)"/>`;
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + 0.31;
+    html += `<rect x="${(Math.cos(a) * 3.35 - 0.35).toFixed(2)}" y="${(Math.sin(a) * 3.35 - 0.35).toFixed(2)}" width="0.7" height="0.7" rx="0.15" fill="rgba(255,190,140,0.18)"/>`;
+  }
+  html += `<circle r="1.2" fill="none" stroke="rgba(160,150,140,0.5)" stroke-width="0.25" stroke-dasharray="0.5 0.35"/>`;
+  html += `<circle r="${on ? 0.5 + s * 0.6 : 0.5}" fill="${on ? (st.fuel < 0.05 ? '#8a2a10' : '#ff9a4a') : '#3a2f28'}"/>`;
+  for (const p of st.people) {
+    // People out in the woods show at the edge of the map, in their direction
+    const d = Math.hypot(p.x, p.z), k = d > 11 ? 11 / d : 1, x = p.x * k, z = p.z * k;
+    if (p.torch) html += `<circle cx="${x}" cy="${z}" r="1.3" fill="#ff8a3a" opacity="0.18"/>`;
+    html += `<circle cx="${x}" cy="${z}" r="0.5" fill="${COLORS[p.look] || '#ccc'}" stroke="#0c0a09" stroke-width="0.15"/>`;
+    const name = p.name.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    html += `<text x="${x}" y="${z - 0.8}" text-anchor="middle" font-size="1.05" font-family="Inter, sans-serif" fill="#f3e6d6">${p.ai ? '<tspan fill="#ffc24a">ב </tspan>' : ''}${name}</text>`;
+  }
+  svg.innerHTML = html;
+}
+
+// ---- the flame: a little live fire whose size follows the real one -----------------
+const cv = $('flame'), ctx = cv.getContext('2d');
+const parts = [];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(t) {
+  const want = st.state === 'on' ? (st.fuel ?? 8) : st.state === 'starting' ? 3 : 0;
+  fuelShown += (want - fuelShown) * 0.03;
+  const s = st.state === 'off' ? 0 : Math.max(st.state === 'on' && fuelShown < 0.05 ? 0.02 : 0, sizeOf(fuelShown));
+  const W = cv.width, H = cv.height, cx = W / 2, base = H * 0.78;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#0a0807'; ctx.fillRect(0, 0, W, H);
+  // Ground glow
+  const gr = ctx.createRadialGradient(cx, base, 4, cx, base, 40 + s * 200);
+  gr.addColorStop(0, `rgba(255,120,40,${0.15 + s * 0.35})`); gr.addColorStop(1, 'rgba(255,120,40,0)');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  // Logs
+  ctx.save(); ctx.translate(cx, base + 6);
+  for (const [r, w] of [[-0.35, 1], [0.35, 1], [0, 0.85]]) {
+    ctx.save(); ctx.rotate(r); ctx.fillStyle = '#3a2416'; ctx.beginPath(); ctx.roundRect(-60 * w, -9, 120 * w, 18, 8); ctx.fill();
+    ctx.fillStyle = `rgba(255,90,20,${0.15 + s * 0.4})`; ctx.fillRect(-50 * w, -3, 100 * w, 4); ctx.restore();
+  }
+  ctx.restore();
+  // Embers bed
+  for (let i = 0; i < 18; i++) {
+    const x = cx + Math.sin(i * 12.9) * 44, y = base + Math.cos(i * 7.3) * 6 - 2;
+    const fl = 0.5 + 0.5 * Math.sin(t / 600 + i * 1.7);
+    ctx.fillStyle = st.state === 'off' ? `rgba(90,70,60,0.5)` : `rgba(255,${80 + fl * 80},30,${0.35 + fl * 0.5})`;
+    ctx.beginPath(); ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2); ctx.fill();
+  }
+  // Flames
+  if (!reduce) {
+    const n = s > 0 ? Math.round(2 + s * 10) : 0;
+    for (let i = 0; i < n; i++) parts.push({ x: cx + (Math.random() - 0.5) * (30 + s * 70), y: base - 4, vx: (Math.random() - 0.5) * 0.6, vy: -(1.2 + Math.random() * 1.6) * (0.6 + s), life: 1, r: 12 + s * 26 + Math.random() * 10 });
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.x += p.vx + Math.sin((t / 300) + p.y / 40) * 0.4; p.y += p.vy; p.life -= 0.022 + (1 - s) * 0.02; p.r *= 0.985;
+    if (p.life <= 0) { parts.splice(i, 1); continue; }
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    const c = p.life > 0.6 ? '255,200,120' : p.life > 0.3 ? '255,120,40' : '180,50,20';
+    g.addColorStop(0, `rgba(${c},${0.35 * p.life})`); g.addColorStop(1, `rgba(${c},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+  if (parts.length > 400) parts.splice(0, parts.length - 400);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- buttons ----------------------------------------------------------------------
+$('toggle').addEventListener('click', async () => {
+  if (busy) return;
+  busy = true; $('toggle').disabled = true;
+  if (st.state === 'on') { $('toggle').textContent = 'Putting it out…'; await post('/api/off'); }
+  else { $('toggle').textContent = 'Lighting…'; await post('/api/on'); }
+  busy = false; refresh();
+});
+async function copy(text, btn) {
+  const was = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; }
+  catch { const r = document.createRange(); r.selectNodeContents($('link')); getSelection().removeAllRanges(); getSelection().addRange(r); btn.textContent = 'Selected: press Ctrl+C'; }
+  setTimeout(() => { btn.textContent = was; }, 1800);
+}
+$('copyLink').addEventListener('click', (e) => copy(st.invite, e.currentTarget));
+$('copyInvite').addEventListener('click', (e) => copy(`Come sit by the fire with me 🔥 Tap to join: ${st.invite}`, e.currentTarget));
+
+refresh();
+setInterval(refresh, 1500);
+</script>
+</body>
+</html>

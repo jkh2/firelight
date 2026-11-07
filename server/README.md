@@ -2,7 +2,27 @@
 
 One shared fire for up to 20 people. It keeps the fire's fuel, the twigs, the marshmallow crates, the seats and the radio in step for everyone, and passes each person's movement along to the others.
 
-## Start it (Windows PowerShell)
+## The easy way: the Firelight host panel
+
+Double-click **`Firelight.cmd`** in the main folder (or the **Firelight** icon on your desktop, see below). A small black window opens, minimized, and your browser opens the host panel:
+
+- **Light the fire / Put it out**: one button. It starts the game server and the tunnel together, and putting it out saves the fire first.
+- **Invite**: the current invite link with **Copy link**, **Copy an invitation** (a ready-to-text message), and a **QR code** anyone in the room can point their phone camera at.
+- **Around the fire**: a little map from above showing who's where and whose torch is lit, plus the list of people with **Remove** (and **Ban** for people signed in with Google).
+
+The panel lives at `http://localhost:8790` and only your own computer can open it. Keep the black window open while the fire is lit; closing it puts the fire out (it saves first).
+
+**Desktop icon (once):** in PowerShell, from the main Firelight folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\make-desktop-shortcut.ps1
+```
+
+**Needs:** Node.js and `cloudflared` installed (both already on James's PC). On Mac or Linux, run `./start-firelight.sh` instead.
+
+Optional settings for the panel in `config.json`: `CONTROL_PORT` (8790), `PUBLIC_SITE`, `AUTO_START` (`true` lights the fire as soon as the panel opens), `CLOUDFLARED` (path, if it isn't on your PATH), and for a permanent address later, `TUNNEL_NAME` + `PUBLIC_HOST`.
+
+## The manual way (Windows PowerShell)
 
 ```powershell
 cd server
@@ -12,7 +32,7 @@ npm.cmd start
 
 You should see `Firelight server: "The Fire" on port 8787`. Leave that window open.
 
-## Let people in
+### Let people in
 
 In a second window:
 

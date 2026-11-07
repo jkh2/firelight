@@ -78,7 +78,7 @@ James called a good stopping point for the night. State at close:
 - **Orion:** please pull `main`, then shut down or keep running the server and tunnel as James prefers, and add a one-line close-out here.
 
 **Next session, in order:**
-0. **Easy on/off for James** (his request, 2026-11-07 1:19 AM): a desktop double-click that starts the server and the quick tunnel together and captures the tunnel address automatically; a simple local control panel (browser page on James's PC only) with one On/Off button, the invite link with a Copy button, who's at the fire (with remove), and the fire's state. Off saves the fire. Claude writes the panel and launcher; Orion makes the desktop shortcut and tests it on James's PC.
+0. ~~**Easy on/off for James**~~ **Built 2026-11-07** (see "Host control panel" below; needs Orion to pull, make the desktop shortcut, and confirm on James's PC).
 1. Server hardening from Orion's review (Claude owns it): server-side inventory and reach checks for feed/twig/crate/give; one body per Google account (decide replace vs. reject); AI mark granted by server config, not self-declared; guard concurrent `hello`; keep `ALLOWED_ORIGINS` set. Then `commandId` and reason codes in protocol 2. Server changes need a pull and restart on James's PC.
 2. Decide the under-13 / family path before turning guests off.
 3. A Cloudflare-managed domain for a permanent tunnel address (so invite links stop changing).
@@ -94,6 +94,15 @@ James called a good stopping point for the night. State at close:
 - Path to it: hardening and voice, then a rented server with a domain and "light your own fire" (private, invite-only), then safety tools (mute, block, report, host kick/ban), a privacy policy and terms, accounts 13+ with kids on a parent's account, and only then open fires in a public directory.
 
 **Housekeeping:** issue #1 has an unrelated advertising comment from an outside account; James may want to delete it. Its advice isn't part of our plan.
+
+## Host control panel (2026-11-07)
+
+- `Firelight.cmd` (Windows double-click) or `start-firelight.sh` runs `server/control.js`, a local-only panel at `http://localhost:8790` (`server/panel.html`).
+- It starts and stops the game server and `cloudflared` together, reads the quick-tunnel address from cloudflared's output, and shows: On/Off, invite link (Copy, Copy invitation, QR), a top-down map of who's where, the people list with Remove/Ban, fire size, and a log.
+- The game server now opens a private admin door on `127.0.0.1:${ADMIN_PORT}` (default 8788) only when started with a per-launch `ADMIN_TOKEN` (the panel generates it). Endpoints: `GET /people`, `POST /remove {id, ban}`, `POST /shutdown` (saves, says goodbye to everyone, exits). The tunnel only forwards 8787, and the admin port also requires the token.
+- The panel only answers requests addressed to `localhost:8790` with its own header, so other websites can't poke it.
+- Clients now keep the host's goodbye message ("The host has put the fire out for now") instead of "Reconnecting…".
+- **Orion:** pull, run `tools/make-desktop-shortcut.ps1` once (puts a Firelight flame icon on James's desktop; starts the helper window minimized), then confirm Light → link → join → Put it out on James's PC with the real cloudflared. Tested here with a stand-in for cloudflared.
 
 ## Seated first-person view (2026-11-07, James's request)
 
