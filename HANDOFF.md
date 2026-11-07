@@ -69,6 +69,23 @@ Future AI partners also need a bounded observation snapshot: self state, percept
 
 Orion made no overlapping server/protocol code edits. Claude Opus 5.5 remains owner of that implementation lane; Orion handled machine setup, account configuration, live verification and this handoff.
 
+## End of session — 2026-11-07, about 1:00 AM MT (Claude, claude.ai)
+
+James called a good stopping point for the night. State at close:
+
+- **Live:** `https://firelight-six.vercel.app` at commit `e9b3fcf` (Phase 1 + marshmallows/animals + Phase 2 networking + Google sign-in + radio card fix). James played from his PC and phone together: both avatars visible, Google sign-in, shared radio all verified.
+- **Server on James's PC** runs commit `d6dd5bf`. The newer commits are client-only (radio card), so **no server restart is needed** for them. To stop for the night: Ctrl+C in the server window saves the fire (it catches up on burn when restarted); closing the tunnel ends the current `trycloudflare.com` address, and a restart gives a new invite link.
+- **Orion:** please pull `main`, then shut down or keep running the server and tunnel as James prefers, and add a one-line close-out here.
+
+**Next session, in order:**
+1. Server hardening from Orion's review (Claude owns it): server-side inventory and reach checks for feed/twig/crate/give; one body per Google account (decide replace vs. reject); AI mark granted by server config, not self-declared; guard concurrent `hello`; keep `ALLOWED_ORIGINS` set. Then `commandId` and reason codes in protocol 2. Server changes need a pull and restart on James's PC.
+2. Decide the under-13 / family path before turning guests off.
+3. A Cloudflare-managed domain for a permanent tunnel address (so invite links stop changing).
+4. Phase 3 voice: James makes a free LiveKit Cloud account; the API secret goes only in `server/config.json`.
+5. Ideas waiting: shared animals, the lake and raft, trails to new places, survival as an optional per-fire mode, AI partners at the fire with Orion's observation snapshot and a revocable controller lease.
+
+**Housekeeping:** issue #1 has an unrelated advertising comment from an outside account; James may want to delete it. Its advice isn't part of our plan.
+
 ## Radio card (2026-11-07)
 
 - James asked to hide the now-playing card without stopping the song. YouTube's embed rules require a visible player of at least 200×200 while it plays, so the card can't be hidden during playback. Instead: the card's ✕ now stops the song **for that person only** (it used to turn the radio off for everyone), the radio offers **Tune back in** to rejoin mid-song, and the card can be **dragged** anywhere (position remembered per device). "Turn the radio off for everyone" stays in the radio panel.
