@@ -1,25 +1,29 @@
 import * as THREE from 'three';
 import { WORLD, groundY } from './world.js';
 import { TWIGS } from './twigs.js';
+import { CRATES, eatLine } from './marshmallow.js';
 
 // ---------------------------------------------------------------------------
 // A Camper is anyone at the fire. It takes plain actions:
 //   walkTo(x, z) · pickTwig(id) · feedFire() · sit(seatId) · stand()
-//   useRadio() · setTorch(on) · steer(dx, dz, run)
+//   useRadio() · openCrate(id) · roast() · eat() · blowOut() · putAwayStick()
+//   give(other, 'roasted' | 'raw') · eatTreat()
+//   setTorch(on) · steer(dx, dz, run)
 // A person's mouse, keyboard or thumbs drive these today. Later a friend
 // over the network, or an AI partner, can drive the very same actions.
 // ---------------------------------------------------------------------------
 
 const SPEED = { walk: 2.0, run: 4.2 };
-const REACH = { twig: 0.75, fire: 3.6, seat: 0.35 };
+const REACH = { twig: 0.75, fire: 3.6, seat: 0.35, crate: 0.85 };
 // The sitting animation puts the hips ~0.32 m behind the body's root, with legs
 // built for a taller chair. So the root goes in front of the seat and a little low.
 const SIT_FORWARD = 0.32;
+const GIVE_REACH = 2.6; // close enough to hand something across a seat or two
 export const SIT_SINK = 0.16;
 
 export class Camper {
-  constructor({ avatar, fire, twigs, seats, colliders, radio = null, name = 'You' }) {
-    Object.assign(this, { avatar, fire, twigs, seats, colliders, radio, name });
+  constructor({ avatar, fire, twigs, seats, colliders, radio = null, crates = null, name = 'You' }) {
+    Object.assign(this, { avatar, fire, twigs, seats, colliders, radio, crates, name });
     this.pos = new THREE.Vector3(0, 0, 5);
     this.heading = Math.PI; // facing the fire from +z
     this.mode = 'stand';    // stand | sitting
@@ -29,6 +33,9 @@ export class Camper {
     this.running = false;
     this.speed = 0;
     this.carrying = 0;
+    this.mallows = 0;   // marshmallows in your pocket
+    this.stick = null;  // a twig held as a roasting stick: { mallow: { doneness, burning } | null }
+    this.treat = null;  // a roasted marshmallow someone handed you: { doneness, from }
     this.torch = false;
     this.ignoreSeat = -1;
     this.listeners = [];
@@ -55,7 +62,8 @@ export class Camper {
     this.goal = { type: 'twig', id };
   }
   feedFire() {
-    if (this.carrying <= 0) { this.emit('needTwigs'); return; }
+    const emptyStick = this.stick && !this.stick.mallow;
+    if (this.carrying <= 0 && !emptyStick) { this.emit(this.stick ? 'busyStick' : 'needTwigs'); return; }
     if (this.mode === 'sitting') { if (!this.avatar.busy) this.toss(); return; }
     this.goal = { type: 'fire' };
   }
@@ -64,6 +72,83 @@ export class Camper {
     if (!s || (s.occupant && s.occupant !== this)) return;
     if (this.mode === 'sitting') { if (this.seat === s) return; return this.stand(() => this.sit(seatId)); }
     this.goal = { type: 'seat', id: seatId };
+  }
+  /** Walk to a hidden crate and take the marshmallows inside. */
+  openCrate(id) {
+    const c = this.crates?.items[id];
+    if (!c) return;
+    if (!c.full) { this.emit('crateEmpty'); return; }
+    if (this.mallows >= CRATES.carryMax) { this.emit('mallowsFull'); return; }
+    if (this.mode === 'sitting') return this.stand(() => this.openCrate(id));
+    this.goal = { type: 'crate', id };
+  }
+  /** Put a marshmallow on a stick. Uses one of your twigs as the stick. */
+  roast() {
+    if (this.stick?.mallow) return;
+    if (this.mallows <= 0) { this.emit('needMallows'); return; }
+    if (!this.stick) {
+      if (this.carrying <= 0) { this.emit('needStick'); return; }
+      this.carrying--;
+      this.avatar.setCarrying(this.carrying);
+      this.stick = { mallow: null };
+    }
+    this.mallows--;
+    this.stick.mallow = { doneness: 0, burning: false, heat: 0 };
+    this.emit('roasting');
+  }
+  eat() {
+    const m = this.stick?.mallow;
+    if (!m || m.burning) return;
+    this.stick.mallow = null;
+    this.emit('ate', { doneness: m.doneness, line: eatLine(m) });
+  }
+  blowOut() {
+    const m = this.stick?.mallow;
+    if (!m?.burning) return;
+    m.burning = false;
+    this.emit('blewOut');
+  }
+  /**
+   * Share with someone at the fire (James's idea). `what` is 'roasted' (straight
+   * off your stick, for them to eat) or 'raw' (one from your pocket to roast
+   * themselves). Works between any two Campers within arm's reach: people now,
+   * friends over the network in Phase 2, AI partners later.
+   */
+  give(other, what = 'roasted') {
+    if (!other || other === this) return false;
+    if (this.pos.distanceTo(other.pos) > GIVE_REACH) { this.emit('tooFar', { to: other.name }); return false; }
+    if (what === 'roasted') {
+      const m = this.stick?.mallow;
+      if (!m || m.burning) return false;
+      this.stick.mallow = null;
+      other.receive('roasted', { doneness: m.doneness, from: this.name });
+    } else {
+      if (this.mallows <= 0) return false;
+      if (other.mallows >= CRATES.carryMax) { this.emit('theirPocketsFull', { to: other.name }); return false; }
+      this.mallows--;
+      other.receive('raw', { from: this.name });
+    }
+    this.emit('gave', { what, to: other.name });
+    return true;
+  }
+  receive(what, { doneness = 0, from = 'someone' } = {}) {
+    if (what === 'roasted') this.treat = { doneness, from };   // held, ready to eat
+    else this.mallows = Math.min(CRATES.carryMax, this.mallows + 1);
+    this.emit('received', { what, from, doneness });
+  }
+  /** Eat a roasted marshmallow someone handed you. */
+  eatTreat() {
+    if (!this.treat) return;
+    const t = this.treat; this.treat = null;
+    this.emit('ate', { doneness: t.doneness, line: eatLine(t), from: t.from });
+  }
+  /** The stick goes back to being a twig. */
+  putAwayStick() {
+    if (!this.stick) return;
+    if (this.stick.mallow) { this.mallows = Math.min(CRATES.carryMax, this.mallows + (this.stick.mallow.doneness < 0.05 ? 1 : 0)); }
+    this.stick = null;
+    if (this.carrying < TWIGS.carryMax) { this.carrying++; this.avatar.setCarrying(this.carrying); }
+    this.emit('stickAway');
   }
   /** Walk up to the radio. From a seat right beside it, just reach over. */
   useRadio() {
@@ -106,6 +191,12 @@ export class Camper {
   toss() {
     const sitting = this.mode === 'sitting';
     const release = () => {
+      if (this.stick && !this.stick.mallow) {
+        // Done roasting: the stick itself goes on the fire
+        this.stick = null;
+        this.emit('release', { from: this.avatar.handPosition(), stick: true });
+        return;
+      }
       if (this.carrying <= 0) return;
       this.carrying--;
       this.avatar.setCarrying(this.carrying);
@@ -128,6 +219,7 @@ export class Camper {
       return { x: this.pos.x * k, z: this.pos.z * k, reach: 0.35 };
     }
     if (g.type === 'radio') return { x: this.radio.pos.x, z: this.radio.pos.z, reach: 1.0 };
+    if (g.type === 'crate') { const c = this.crates.items[g.id]; return { x: c.x, z: c.z, reach: REACH.crate }; }
     if (g.type === 'seat') {
       const s = this.seats[g.id];
       // Approach from the fire side, then settle onto the seat
@@ -154,6 +246,19 @@ export class Camper {
       });
     } else if (g.type === 'fire') {
       this.toss();
+    } else if (g.type === 'crate') {
+      const c = this.crates.items[g.id];
+      this.heading = Math.atan2(c.x - this.pos.x, c.z - this.pos.z);
+      this.avatar.once('PickUp', {
+        at: 0.45,
+        onAt: () => {
+          const n = this.crates.take(g.id);
+          if (!n) { this.emit('crateEmpty'); return; }
+          const got = Math.min(n, CRATES.carryMax - this.mallows);
+          this.mallows += got;
+          this.emit('foundMallows', { got, total: this.mallows });
+        },
+      });
     } else if (g.type === 'radio') {
       this.heading = Math.atan2(this.radio.pos.x - this.pos.x, this.radio.pos.z - this.pos.z);
       this.emit('radio');

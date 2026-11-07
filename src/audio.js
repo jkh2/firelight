@@ -116,6 +116,56 @@ export class Sound {
     }
   }
 
+  /** A distant wolf howl: a slow rising-then-falling glide with a little waver. */
+  howl(pos) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const a = Math.atan2(pos?.z ?? 1, pos?.x ?? 0);
+    const p = this.panner(Math.cos(a) * 40, 4, Math.sin(a) * 40, 12); p.connect(this.master);
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(330, t); o.frequency.linearRampToValueAtTime(560, t + 0.9);
+    o.frequency.setValueAtTime(560, t + 2.0); o.frequency.exponentialRampToValueAtTime(380, t + 3.4);
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.5;
+    const vibG = ctx.createGain(); vibG.gain.value = 7; vib.connect(vibG).connect(o.frequency);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.7;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11, t + 0.6); g.gain.setValueAtTime(0.11, t + 2.6); g.gain.linearRampToValueAtTime(0, t + 3.6);
+    o.connect(lp).connect(bp).connect(g).connect(p);
+    o.start(t); vib.start(t); o.stop(t + 3.8); vib.stop(t + 3.8);
+  }
+  /** A fox's sharp little yip. */
+  yip(pos) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const p = this.panner(pos.x, 0.5, pos.z, 2); p.connect(this.master);
+    for (const off of [0, 0.16]) {
+      const t = ctx.currentTime + off;
+      const o = ctx.createOscillator(); o.type = 'triangle';
+      o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(1500, t + 0.05); o.frequency.exponentialRampToValueAtTime(700, t + 0.12);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.18, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+      o.connect(g).connect(p); o.start(t); o.stop(t + 0.16);
+    }
+  }
+  /** Lifting a crate lid. */
+  creak() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(230, t + 0.35);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 6;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06, t + 0.05); g.gain.linearRampToValueAtTime(0, t + 0.4);
+    o.connect(f).connect(g).connect(this.master); o.start(t); o.stop(t + 0.45);
+  }
+  /** Blowing out a burning marshmallow. */
+  puff() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const s = ctx.createBufferSource(); s.buffer = this.pink;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.35, t + 0.04); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    s.connect(f).connect(g).connect(this.master); s.start(t, Math.random(), 0.4);
+  }
+
   // Event sounds
   snap() { if (this.ctx) { this.pop(this.master, { freq: 3200, q: 2, dur: 0.025, gain: 0.25 }); this.pop(this.master, { freq: 1800, q: 2, dur: 0.04, gain: 0.18, when: 0.03 }); } }
   whoosh() {

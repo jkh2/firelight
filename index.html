@@ -21,9 +21,10 @@
   <canvas id="scene"></canvas>
 
   <div id="hud" aria-live="polite">
-    <div id="twigs" class="empty" title="Twigs you're carrying">
-      <i></i><i></i><i></i><i></i><i></i>
-    </div>
+    <button id="pack" class="empty" aria-label="Open your pack" title="Your pack (I)">
+      <span id="twigs"><i></i><i></i><i></i><i></i><i></i></span>
+      <span id="mallows" class="none"><b class="mallow-ico"></b><span id="mallowCount">0</span></span>
+    </button>
     <div id="hint" role="status"></div>
     <div id="buttons">
       <button id="torchBtn" class="round" aria-label="Torch on or off" title="Torch (F)">
@@ -32,6 +33,25 @@
       <button id="soundBtn" class="round" aria-label="Sound on or off" title="Sound (M)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" class="spk"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" class="waves"/><path d="M15.5 9.5l5 5m0-5l-5 5" class="x"/></svg>
       </button>
+    </div>
+  </div>
+
+  <div id="roastChip" aria-live="polite">
+    <span id="chipSwatch"></span><span id="chipHeat" aria-hidden="true"></span>
+    <span id="chipLabel">Raw</span>
+    <button id="chipA">Eat</button><button id="chipB" class="quiet">Put away</button>
+  </div>
+
+  <div id="invPanel" role="dialog" aria-label="Your pack">
+    <div class="sheet">
+      <div class="sheet-head"><h2>Your pack</h2><button id="invClose" aria-label="Close">✕</button></div>
+      <div class="inv-grid">
+        <div class="inv-item"><span class="inv-ico twig-ico"></span><span class="inv-n" id="invTwigs">0</span><span class="inv-name">Twigs</span></div>
+        <div class="inv-item"><span class="inv-ico mallow-ico"></span><span class="inv-n" id="invMallows">0</span><span class="inv-name">Marshmallows</span></div>
+      </div>
+      <button id="invRoast" class="primary">Roast a marshmallow</button>
+      <p id="invRoastNote" class="status"></p>
+      <button id="invPutAway" class="ghost" hidden>Put the stick away</button>
     </div>
   </div>
 
@@ -64,12 +84,12 @@
       <p id="joinStatus" class="status">Gathering firewood…</p>
       <ul class="how pc">
         <li><b>WASD</b> walk · <b>drag</b> look · <b>wheel</b> zoom</li>
-        <li><b>Click</b> a twig to pick it up, the fire to feed it, a chair to sit, the radio to play a song</li>
-        <li><b>F</b> torch · <b>M</b> sound</li>
+        <li><b>Click</b> a twig, the fire, a chair, the radio, or a crate you find in the woods</li>
+        <li><b>F</b> torch · <b>I</b> pack · <b>R</b> roast · <b>Q</b> eat · <b>M</b> sound</li>
       </ul>
       <ul class="how phone">
         <li><b>Tap</b> the ground to walk · <b>drag</b> to look · <b>pinch</b> to zoom</li>
-        <li><b>Tap</b> a twig, the fire, a chair, or the radio</li>
+        <li><b>Tap</b> a twig, the fire, a chair, the radio, or a hidden crate</li>
       </ul>
     </div>
   </div>

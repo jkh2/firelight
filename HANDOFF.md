@@ -17,6 +17,8 @@ Working:
 - Ring of 10 seats (low camp chairs and logs); sitting locks the camera to face the fire
 - A camp at the edge: tent, backpack, woodpile, axe, a pot by the stones
 - Radio on a stump table: paste a YouTube link and it plays, with volume by distance
+- Marshmallows: hidden crates, roast on a twig, eat, toss the stick on the fire; give/receive actions ready for Phase 2
+- Animals that never harm: wolves (eyeshine, circle in the dark, flee the torch), a twig-stealing fox, a grazing deer, fireflies; distant wolf howls
 - Procedural sound: fire roar and crackle, crickets, wind, owl, twig sounds, all positioned in 3D
 - PWA manifest and icon so it installs with "Add to Home Screen"
 - Adaptive resolution if a phone struggles
@@ -27,6 +29,11 @@ Working:
   - Open question: James's grandkids. Google accounts for children under 13 (Family Link) often can't sign in to third-party apps. Likely answer: a parent signs in and brings the kids on the same device, or invited guest seats. Decide before Phase 2 ships.
 - **Radio** (James's idea): YouTube embeds via the official IFrame API. Phase 2 syncs `{videoId, startedAt}` through the server so everyone hears the same moment; `Radio.play(videoId, startedAt)` already supports it. The embedded player must stay visible and at least 200×200 (YouTube's rules), so it lives in the "now playing" card.
 - **No guns or combat.** We talked about it and agreed: sticks, quiet walks, and talking.
+- **Marshmallows** (James's design): found in hidden crates that refill on their own, like manna; any carried twig becomes the roasting stick; the stick can go on the fire afterward. `Camper.give(other, 'roasted' | 'raw')` and `eatTreat()` exist for handing marshmallows to others; the tap-an-avatar menu arrives with Phase 2.
+- **Animals never hurt anyone.** Wolves circle closer in the dark when your torch is off and back off when it's lit; a fox can steal a twig; a deer grazes at the light's edge. Agreed: the dark has a little bite, but no harm, because grandkids will be at this fire.
+- **Survival layer idea** (James): marshmallows as food, a canteen filled at the lake, hunger and thirst. Proposed shape: an optional per-fire "survival mode" the owner can turn on, or a gentler warmth mechanic (cold out in the dark, warmed by the fire, a hot marshmallow or canteen drink warms faster) so nothing ever pulls people away from talking. Not decided.
+- **The core loop** (James, in his words): wander off from the fire into the dark to explore, then feel the reward of returning to the warm light and the people gathered there. Everything out in the dark (twigs, crates, animals) should serve that.
+- **Expand the world when the time is right.** Grow with trails out of the clearing to places worth finding (the lake, a ridge with the whole sky, an old cabin), keeping the fire close and warm.
 - **Future ideas, not scheduled:** a path to a dark lake with the raft (Survival Pack has `Raft` and `Raft_Paddle`); AI partners joining as avatars through the same `Camper` actions.
 
 ## Next

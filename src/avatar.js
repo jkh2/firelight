@@ -113,8 +113,13 @@ export class Avatar {
   once(name, { at, onAt, done, fade = 0.15 } = {}) {
     const a = this.actions[name];
     if (!a) { done?.(); return; }
-    this.play(name, fade);
-    this.oneShot = { action: a, at, onAt, fired: false, done };
+    if (a === this.current) {
+      // Same clip again (two throws in a row): restart it, or it stays parked
+      // on its last frame and never reports that it finished.
+      a.reset().setEffectiveWeight(1).play();
+    } else this.play(name, fade);
+    // Safety net: a one-shot can never hold the body longer than its clip
+    this.oneShot = { action: a, at, onAt, fired: false, done, until: this.time + a.getClip().duration + 0.6 };
   }
 
   get busy() { return !!this.oneShot; }
@@ -132,6 +137,11 @@ export class Avatar {
     this.time += dt;
     if (!this.oneShot && locomotion) this.play(locomotion);
     this.mixer.update(dt);
+    if (this.oneShot && this.time > this.oneShot.until) {
+      const o = this.oneShot; this.oneShot = null;
+      if (o.at != null && !o.fired) o.onAt?.();
+      o.done?.();
+    }
     if (this.oneShot && this.oneShot.at != null && !this.oneShot.fired) {
       const a = this.oneShot.action;
       if (a.time >= a.getClip().duration * this.oneShot.at) { this.oneShot.fired = true; this.oneShot.onAt?.(); }

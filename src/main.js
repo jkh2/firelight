@@ -8,6 +8,8 @@ import { Avatar, AVATAR } from './avatar.js';
 import { Camper } from './camper.js';
 import { Sound } from './audio.js';
 import { Radio, parseYouTube } from './radio.js';
+import { Crates, Roaster, roastLabel, roastColor, CRATES } from './marshmallow.js';
+import { Critters } from './critters.js';
 
 const $ = (id) => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches;
@@ -51,9 +53,12 @@ if (!AVATAR.looks.includes(look)) look = AVATAR.looks[0];
 const sound = new Sound();
 let game = null;
 
-Promise.all([load('props.glb'), load('animations.glb'), ...AVATAR.looks.map((k) => load(`${k}.glb`))]).then(([props, anims, ...chars]) => {
+const ANIMALS = ['wolf', 'fox', 'deer'];
+Promise.all([load('props.glb'), load('animations.glb'), ...ANIMALS.map((k) => load(`${k}.glb`)), ...AVATAR.looks.map((k) => load(`${k}.glb`))]).then(([props, anims, ...rest]) => {
+  const animals = Object.fromEntries(ANIMALS.map((k, i) => [k, rest[i]]));
+  const chars = rest.slice(ANIMALS.length);
   const models = Object.fromEntries(AVATAR.looks.map((k, i) => [k, chars[i].scene]));
-  game = startGame(props.scene, anims.animations, models);
+  game = startGame(props.scene, anims.animations, models, animals);
   buildPicker(models);
   $('join').classList.add('ready');
 }).catch((e) => {
@@ -62,14 +67,17 @@ Promise.all([load('props.glb'), load('animations.glb'), ...AVATAR.looks.map((k) 
 });
 
 // ---- the game -------------------------------------------------------------
-function startGame(props, clips, models) {
+function startGame(props, clips, models, animals) {
   const world = buildWorld(scene, props);
   const torchModel = props.getObjectByName('WoodenTorch');
   const fire = new Fire(scene);
   const radio = new Radio(scene, props, world.colliders);
+  const crates = new Crates(scene, world.colliders, world.blocked);
   const twigs = new Twigs(scene, world.blocked);
   let avatar = new Avatar(scene, models[look], clips, torchModel);
-  const me = new Camper({ avatar, fire, twigs, seats: world.seats, colliders: world.colliders, radio });
+  const me = new Camper({ avatar, fire, twigs, seats: world.seats, colliders: world.colliders, radio, crates });
+  const roaster = new Roaster(scene, me, fire);
+  const critters = new Critters(scene, animals, { fire, camper: me, sound });
   const a = Math.random() * Math.PI * 2;
   me.spawnAt(Math.cos(a) * 5.2, Math.sin(a) * 5.2);
 
@@ -109,7 +117,7 @@ function startGame(props, clips, models) {
     // Pull the camera in if a tree or rock stands between it and you
     let dist = cam.dist;
     for (const c of world.colliders) {
-      if (c.seat != null || c.r < 0.45) continue; // only trees, rocks and the tent block the view
+      if (c.seat != null || c.r < 0.45 || c.crate != null) continue; // only trees, rocks and the tent block the view
       const rx = c.x - cam.target.x, rz = c.z - cam.target.z;
       const along = rx * dir.x + rz * dir.z, horiz = Math.hypot(dir.x, dir.z) || 1;
       const t = along / (horiz * horiz);
@@ -144,6 +152,23 @@ function startGame(props, clips, models) {
     if (type === 'full') hint('Your arms are full. Feed the fire.');
     if (type === 'torch') $('torchBtn').classList.toggle('on', d.on);
     if (type === 'radio') openRadio();
+    // Marshmallows
+    if (type === 'foundMallows') { sound.creak(); updateTwigHud(); hint(seen.mallow ? `Found ${d.got} marshmallow${d.got > 1 ? 's' : ''}.` : `Found ${d.got} marshmallows! Open your pack (top left${touch ? '' : ', or I'}) to roast one on a twig.`, 5); seen.mallow = true; }
+    if (type === 'crateEmpty') hint('Empty. It will be restocked by and by.');
+    if (type === 'mallowsFull') hint(`Your pockets are full. You can carry ${CRATES.carryMax} marshmallows.`);
+    if (type === 'needMallows') hint(seen.mallow ? 'Out of marshmallows. Look for another crate in the woods.' : 'Marshmallows are hidden in little wooden crates out in the dark. Bring your torch.', 5);
+    if (type === 'needStick') hint('You need a twig for a roasting stick. Pick one up first.');
+    if (type === 'roasting') { closeInventory(); updateTwigHud(); hint(touch ? 'Hold it toward the fire. Closer roasts faster, and burns sooner.' : 'Hold it toward the fire. Closer roasts faster, and burns sooner. Q to eat.', 4.5); }
+    if (type === 'mallowCaught') hint('It caught fire! Blow it out quick.', 3);
+    if (type === 'blewOut') { sound.puff(); hint('Phew.', 1.5); }
+    if (type === 'mallowFell') hint('It slid off into the fire. Happens to everyone.', 3.5);
+    if (type === 'ate') { updateTwigHud(); hint(d.from ? `From ${d.from}: ${d.line}` : d.line, 4); }
+    if (type === 'busyStick') hint('Eat your marshmallow first, or put the stick away.');
+    if (type === 'stickAway') updateTwigHud();
+    if (type === 'received') hint(d.what === 'roasted' ? `${d.from} handed you a toasted marshmallow.` : `${d.from} gave you a marshmallow to roast.`);
+    // Animals
+    if (type === 'foxStole') { updateTwigHud(); hint('A fox darted in and snatched a twig! Keep your torch lit out in the dark.', 5); }
+    if (type === 'foxScared') { if (!seen.fox) { seen.fox = true; hint('Something scurried off into the dark.', 3); } }
   });
   function updateFlying(dt) {
     for (let i = flying.length - 1; i >= 0; i--) {
@@ -177,7 +202,57 @@ function startGame(props, clips, models) {
   function updateTwigHud() {
     const slots = $('twigs').children;
     for (let i = 0; i < slots.length; i++) slots[i].classList.toggle('full', i < me.carrying);
-    $('twigs').classList.toggle('empty', me.carrying === 0);
+    $('pack').classList.toggle('empty', me.carrying === 0 && me.mallows === 0 && !me.stick);
+    $('mallowCount').textContent = me.mallows;
+    $('mallows').classList.toggle('none', me.mallows === 0);
+    updateInventory();
+  }
+
+  // ---- pack and roasting ------------------------------------------------------
+  const invPanel = $('invPanel');
+  function updateInventory() {
+    $('invTwigs').textContent = me.carrying;
+    $('invMallows').textContent = me.mallows;
+    const canRoast = me.mallows > 0 && (me.stick ? !me.stick.mallow : me.carrying > 0);
+    $('invRoast').disabled = !canRoast;
+    $('invRoastNote').textContent = me.stick?.mallow ? 'You already have one on the stick.'
+      : me.mallows === 0 ? 'Find marshmallows in the crates hidden in the woods.'
+      : !me.stick && me.carrying === 0 ? 'You need a twig to use as a stick.'
+      : me.stick ? 'Puts one on the stick you are holding.' : 'Uses one twig as the roasting stick.';
+    $('invPutAway').hidden = !me.stick;
+  }
+  function toggleInventory() { invPanel.classList.contains('open') ? closeInventory() : (updateInventory(), invPanel.classList.add('open')); }
+  function closeInventory() { invPanel.classList.remove('open'); }
+  $('pack').addEventListener('click', toggleInventory);
+  $('invClose').addEventListener('click', closeInventory);
+  $('invRoast').addEventListener('click', () => me.roast());
+  $('invPutAway').addEventListener('click', () => { me.putAwayStick(); closeInventory(); });
+  invPanel.addEventListener('click', (e) => { if (e.target === invPanel) closeInventory(); });
+
+  // The roast chip: what your marshmallow looks like right now, and what you can do
+  const chip = $('roastChip'), chipColor = new THREE.Color();
+  let chipKey = '';
+  function updateRoastChip() {
+    const m = me.stick?.mallow, t = me.treat;
+    const show = !!(me.stick || t);
+    chip.classList.toggle('show', show);
+    if (!show) { chipKey = ''; return; }
+    let label, key, swatch = '#8a6a48';
+    if (t) { label = `From ${t.from}`; key = 'treat'; swatch = '#' + roastColor(t.doneness, chipColor).getHexString(); }
+    else if (m) { label = roastLabel(m); key = m.burning ? 'burn' : 'roast'; swatch = '#' + roastColor(m.doneness, chipColor).getHexString(); }
+    else { label = 'Empty stick'; key = me.mallows > 0 ? 'empty+' : 'empty'; }
+    $('chipLabel').textContent = label;
+    $('chipSwatch').style.background = swatch;
+    $('chipHeat').style.opacity = m && !m.burning ? Math.min(1, (m.heat ?? 0) * 1.6) : 0;
+    if (key !== chipKey) {
+      chipKey = key;
+      const a = $('chipA'), b = $('chipB');
+      a.hidden = b.hidden = false;
+      if (key === 'treat') { a.textContent = 'Eat it'; a.onclick = () => me.eatTreat(); b.hidden = true; }
+      else if (key === 'burn') { a.textContent = 'Blow it out'; a.onclick = () => me.blowOut(); b.hidden = true; }
+      else if (key === 'roast') { a.textContent = 'Eat'; a.onclick = () => me.eat(); b.textContent = 'Put away'; b.onclick = () => me.putAwayStick(); }
+      else { a.textContent = key === 'empty+' ? 'Roast another' : 'Toss on fire'; a.onclick = key === 'empty+' ? () => me.roast() : () => me.feedFire(); b.textContent = key === 'empty+' ? 'Toss on fire' : 'Keep as twig'; b.onclick = key === 'empty+' ? () => me.feedFire() : () => me.putAwayStick(); }
+    }
   }
 
   // ---- input ----------------------------------------------------------------
@@ -186,11 +261,12 @@ function startGame(props, clips, models) {
   function pick(clientX, clientY) {
     ndc.set((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hits = ray.intersectObjects([twigs.hits, fireHit, radio.group, world.seatGroup, world.ground], true);
+    const hits = ray.intersectObjects([twigs.hits, fireHit, radio.group, crates.group, world.seatGroup, world.ground], true);
     for (const h of hits) {
       if (h.object === twigs.hits) { if (twigs.items[h.instanceId].present) return { type: 'twig', id: h.instanceId }; continue; }
       if (h.object === fireHit) return { type: 'fire' };
       if (h.object.userData.radio) return { type: 'radio' };
+      if (h.object.userData.crate != null) return { type: 'crate', id: h.object.userData.crate };
       if (h.object.userData.seat != null) return { type: 'seat', id: h.object.userData.seat };
       if (h.object === world.ground) return { type: 'ground', point: h.point };
     }
@@ -202,6 +278,7 @@ function startGame(props, clips, models) {
     else if (target.type === 'fire') me.feedFire();
     else if (target.type === 'seat') me.sit(target.id);
     else if (target.type === 'radio') me.useRadio();
+    else if (target.type === 'crate') me.openCrate(target.id);
     else if (target.type === 'ground') {
       if (me.mode === 'sitting') me.stand();
       else { me.walkTo(target.point.x, target.point.z); showMarker(target.point); }
@@ -261,6 +338,9 @@ function startGame(props, clips, models) {
     if (k === 'f' && !e.repeat) { me.toggleTorch(); return; }
     if (k === 'm' && !e.repeat) { toggleSound(); return; }
     if (k === 'e' && !e.repeat) { me.feedFire(); return; }
+    if (k === 'r' && !e.repeat) { me.roast(); return; }
+    if (k === 'q' && !e.repeat) { if (me.treat) me.eatTreat(); else if (me.stick?.mallow?.burning) me.blowOut(); else me.eat(); return; }
+    if (k === 'i' && !e.repeat) { toggleInventory(); return; }
     keys.add(k);
     if (me.mode === 'sitting' && !e.repeat && !['shift', 'control', 'alt', 'meta', 'tab'].includes(k)) me.stand();
   });
@@ -329,6 +409,10 @@ function startGame(props, clips, models) {
     me.update(dt);
     updateFlying(dt);
     radio.update(dt, me.pos, sound.muted);
+    crates.update(dt);
+    roaster.update(dt);
+    critters.update(dt, camera);
+    updateRoastChip();
     world.sky.update(dt, time, Math.min(1, fire.size * 1.15));
     world.hemi.intensity = 0.32 + 0.4 * (1 - Math.min(1, fire.size * 1.4)); // moonlight reads more when the fire is low
     if (markerT > 0) { markerT = Math.max(0, markerT - dt * 1.4); marker.material.opacity = markerT * 0.8; marker.scale.setScalar(1 + (1 - markerT) * 0.6); }
@@ -345,6 +429,7 @@ function startGame(props, clips, models) {
     sound.update(dt, camera, fire.size, fire.isEmbers);
     fire.sparks.material.uniforms.uPx.value = renderer.getPixelRatio() * innerHeight / 900;
     world.sky.uniforms.uPx.value = renderer.getPixelRatio();
+    critters.flyU.uPx.value = renderer.getPixelRatio();
     renderer.render(scene, camera);
     // Adaptive resolution: if a phone struggles, render fewer pixels
     fpsAcc += dt; fpsN++;
@@ -377,6 +462,7 @@ function startGame(props, clips, models) {
     const old = me.avatar;
     const fresh = new Avatar(scene, models[key], clips, torchModel);
     fresh.setTorch(me.torch); fresh.setCarrying(me.carrying);
+    fresh.bundle.visible = !me.stick && me.carrying > 0;
     fresh.root.position.copy(old.root.position); fresh.root.rotation.copy(old.root.rotation);
     old.dispose(scene);
     me.avatar = fresh;
@@ -384,7 +470,7 @@ function startGame(props, clips, models) {
 
   // Test hook for automated checks; harmless in production
   window.__firelight = {
-    fire, me, twigs, world, cam, radio, FIRE, TWIGS,
+    fire, me, twigs, world, cam, radio, crates, roaster, critters, FIRE, TWIGS,
     advance(seconds, step_ = 1 / 30) { for (let t = 0; t < seconds; t += step_) step(step_); },
     setFuel(f) { fire.fuel = f; fire.size = Math.min(1.15, Math.sqrt(f / FIRE.bonfireFuel)); },
     join,
