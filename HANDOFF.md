@@ -78,6 +78,7 @@ James called a good stopping point for the night. State at close:
 - **Orion:** please pull `main`, then shut down or keep running the server and tunnel as James prefers, and add a one-line close-out here.
 
 **Next session, in order:**
+0. **Easy on/off for James** (his request, 2026-11-07 1:19 AM): a desktop double-click that starts the server and the quick tunnel together and captures the tunnel address automatically; a simple local control panel (browser page on James's PC only) with one On/Off button, the invite link with a Copy button, who's at the fire (with remove), and the fire's state. Off saves the fire. Claude writes the panel and launcher; Orion makes the desktop shortcut and tests it on James's PC.
 1. Server hardening from Orion's review (Claude owns it): server-side inventory and reach checks for feed/twig/crate/give; one body per Google account (decide replace vs. reject); AI mark granted by server config, not self-declared; guard concurrent `hello`; keep `ALLOWED_ORIGINS` set. Then `commandId` and reason codes in protocol 2. Server changes need a pull and restart on James's PC.
 2. Decide the under-13 / family path before turning guests off.
 3. A Cloudflare-managed domain for a permanent tunnel address (so invite links stop changing).
