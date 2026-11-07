@@ -49,6 +49,7 @@ The local/account lane is complete and verified end to end.
 - Vercel has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as public Config values for Production, Preview and Development. Production was redeployed from commit `d6dd5bf`; deployment `dpl_DMeugnh45k2qAm77N8yuxN3drAHC` reached `READY` and owns `firelight-six.vercel.app`.
 - Local `server/config.json` is git-ignored and contains the public Supabase URL/publishable key, `ALLOW_GUESTS=true`, owner email for James, and an origin allowlist limited to Firelight production plus local development. Guest access remains intentionally on until family-login behavior and the under-13 path are settled.
 - Verified live sequence: the guest identity `Wookie` connected; after Google OAuth was corrected and retried, the server logged `Wookie left the fire` followed by `James Harwood sat down by the fire`. The production bundle contains the Supabase project and Google sign-in code, and the public server reports `signIn: true`.
+- Live public-tunnel acceptance test now has James connected simultaneously from his PC and phone, with both avatars visible to each other. Each browser session currently creates a separate Camper; this is useful for testing and also confirms the future one-authenticated-account/one-body policy still needs an explicit replace/reject decision. James has confirmed the radio works locally and is testing cross-device synchronized playback now; do not mark the two-client audio check passed until he reports the result.
 - Clean root and server installs/builds pass. Production dependency audits report zero known vulnerabilities. The root install reports four moderate dev-tool findings; no automatic or breaking audit fix was applied.
 
 ### Camper/network boundary review
@@ -83,9 +84,11 @@ Orion made no overlapping server/protocol code edits. Claude Opus 5.5 remains ow
 
 ## Next
 
-1. James plays Phase 1 on his phone and PC and judges the feel. Tune from his notes.
-2. Phase 2: run the server on James's PC with a tunnel; first family fire; then Supabase Google sign-in and ALLOW_GUESTS=false.
-3. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses.
+1. Finish the live PC/phone acceptance pass: synchronized radio playback, movement, contested items/seats, reconnect behavior and leaving.
+2. Keep guest access enabled for now; Google sign-in is working but optional. Decide the family/under-13 path and the one-account/one-body replace-or-reject policy before disabling guests.
+3. Choose a managed domain/Cloudflare zone before replacing the temporary quick-tunnel hostname with a durable named tunnel.
+4. Opus owns any protocol/server hardening from the Camper review above; Orion should avoid overlapping edits unless that lane is explicitly handed over.
+5. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses.
 
 ## Notes for contributors
 
