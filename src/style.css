@@ -156,3 +156,11 @@ h1 { font: 600 44px/1 Fraunces, Georgia, serif; letter-spacing: -0.01em; margin:
 #givePanel .ghost { margin-top: 10px; }
 #givePanel .ghost:disabled { opacity: 0.35; }
 #givePanel .status { text-align: left; margin: 10px 2px 0; display: block !important; }
+
+/* Now-playing card can be dragged by its header */
+.np-head { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+#nowPlaying.dragging { transition: none; }
+#nowPlaying.dragging .np-head { cursor: grabbing; }
+.np-grip { width: 8px; height: 14px; flex: none; opacity: 0.45;
+  background-image: radial-gradient(circle, var(--ink-dim) 1.2px, transparent 1.4px); background-size: 4px 4.6px; }
+.tune { margin-bottom: 10px; }

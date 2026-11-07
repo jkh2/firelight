@@ -378,13 +378,44 @@ function startGame(props, clips, models, animals) {
   }
   if (store.get('firelight.muted', '0') === '1') { sound.muted = true; $('soundBtn').classList.add('off'); }
 
+  /** Lets a card be dragged by its handle; remembers where it was left. */
+  function draggable(el, handle, key) {
+    let start = null;
+    const place = (x, y) => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      el.style.left = `${THREE.MathUtils.clamp(x, 8, innerWidth - w - 8)}px`;
+      el.style.top = `${THREE.MathUtils.clamp(y, 8, innerHeight - h - 8)}px`;
+      el.style.right = 'auto'; el.style.bottom = 'auto';
+    };
+    try { const p = JSON.parse(store.get(key, 'null')); if (p) requestAnimationFrame(() => place(p.x * innerWidth, p.y * innerHeight)); } catch { /* no saved spot */ }
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      start = { x: e.clientX, y: e.clientY, l: el.offsetLeft, t: el.offsetTop };
+      handle.setPointerCapture(e.pointerId);
+      el.classList.add('dragging');
+    });
+    handle.addEventListener('pointermove', (e) => { if (start) place(start.l + e.clientX - start.x, start.t + e.clientY - start.y); });
+    const end = () => {
+      if (!start) return;
+      start = null; el.classList.remove('dragging');
+      store.set(key, JSON.stringify({ x: el.offsetLeft / innerWidth, y: el.offsetTop / innerHeight }));
+    };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    addEventListener('resize', () => { if (el.style.left) place(el.offsetLeft, el.offsetTop); });
+  }
+
   // ---- radio panel ------------------------------------------------------------
   const panel = $('radioPanel'), input = $('radioLink'), status = $('radioStatus');
   function openRadio() {
     panel.classList.add('open');
-    status.textContent = radio.playing ? `Playing: ${radio.title}` : 'Paste a YouTube link to put on a song.';
+    const others = !!mp;
+    status.textContent = radio.tunedOut && radio.videoId ? (others ? `Still playing for everyone else${radio.title ? `: ${radio.title}` : ''}.` : 'The radio is still on. Tune back in to hear it.')
+      : radio.playing ? `Playing: ${radio.title}` : 'Paste a YouTube link to put on a song.';
+    $('radioTuneIn').hidden = !(radio.tunedOut && radio.videoId);
     $('radioOff').disabled = !radio.videoId;
-    setTimeout(() => input.focus(), 50);
+    $('radioOff').textContent = others ? 'Turn the radio off for everyone' : 'Turn the radio off';
+    if (!touch) setTimeout(() => input.focus(), 50);
   }
   function closeRadio() { panel.classList.remove('open'); input.blur(); }
   function playLink() {
@@ -398,13 +429,17 @@ function startGame(props, clips, models, animals) {
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') playLink(); if (e.key === 'Escape') closeRadio(); e.stopPropagation(); });
   $('radioClose').addEventListener('click', closeRadio);
   $('radioOff').addEventListener('click', () => { radio.stop(); });
-  $('npOff').addEventListener('click', () => radio.stop());
+  $('radioTuneIn').addEventListener('click', () => { radio.tuneIn(); });
+  // The card's ✕ stops the song for you only; everyone else keeps listening
+  $('npOff').addEventListener('click', () => radio.tuneOut());
+  draggable($('nowPlaying'), document.querySelector('#nowPlaying .np-head'), 'firelight.npPos');
   radio.on((type, d) => {
     const np = $('nowPlaying');
     if (type === 'loading') { status.textContent = 'Tuning in…'; np.classList.add('show'); $('npTitle').textContent = 'Tuning in…'; }
     if (type === 'playing') { status.textContent = `Playing: ${d.title}`; $('npTitle').textContent = d.title || 'On the radio'; np.classList.add('show'); setTimeout(closeRadio, 900); }
     if (type === 'error') { status.textContent = d.message; $('npTitle').textContent = 'Nothing playing'; np.classList.remove('show'); }
-    if (type === 'stopped' || type === 'ended') { status.textContent = 'The radio is off.'; np.classList.remove('show'); $('radioOff').disabled = true; }
+    if (type === 'stopped' || type === 'ended') { status.textContent = 'The radio is off.'; np.classList.remove('show'); $('radioOff').disabled = true; $('radioTuneIn').hidden = true; }
+    if (type === 'tunedOut') { np.classList.remove('show'); hint(mp ? "The radio's off for you. Everyone else still hears it. Tap the radio to tune back in." : 'Tap the radio to tune back in.', 5); }
   });
 
   // ---- loop -------------------------------------------------------------------

@@ -49,7 +49,7 @@ The local/account lane is complete and verified end to end.
 - Vercel has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as public Config values for Production, Preview and Development. Production was redeployed from commit `d6dd5bf`; deployment `dpl_DMeugnh45k2qAm77N8yuxN3drAHC` reached `READY` and owns `firelight-six.vercel.app`.
 - Local `server/config.json` is git-ignored and contains the public Supabase URL/publishable key, `ALLOW_GUESTS=true`, owner email for James, and an origin allowlist limited to Firelight production plus local development. Guest access remains intentionally on until family-login behavior and the under-13 path are settled.
 - Verified live sequence: the guest identity `Wookie` connected; after Google OAuth was corrected and retried, the server logged `Wookie left the fire` followed by `James Harwood sat down by the fire`. The production bundle contains the Supabase project and Google sign-in code, and the public server reports `signIn: true`.
-- Live public-tunnel acceptance test now has James connected simultaneously from his PC and phone, with both avatars visible to each other. Each browser session currently creates a separate Camper; this is useful for testing and also confirms the future one-authenticated-account/one-body policy still needs an explicit replace/reject decision. James has confirmed the radio works locally and is testing cross-device synchronized playback now; do not mark the two-client audio check passed until he reports the result.
+- Live public-tunnel acceptance test now has James connected simultaneously from his PC and phone, with both avatars visible to each other. Each browser session currently creates a separate Camper; this is useful for testing and also confirms the future one-authenticated-account/one-body policy still needs an explicit replace/reject decision. James confirmed the radio works across his PC and phone (2026-11-07, about 00:52 MT): the two-client radio check passed.
 - Clean root and server installs/builds pass. Production dependency audits report zero known vulnerabilities. The root install reports four moderate dev-tool findings; no automatic or breaking audit fix was applied.
 
 ### Camper/network boundary review
@@ -68,6 +68,10 @@ Before adversarial public access or AI control, Claude should keep the current v
 Future AI partners also need a bounded observation snapshot: self state, perceptible nearby people, fire state/distance, seats, visible twigs/crates, radio state and currently valid high-level actions. Do not expose the raw scene graph or hidden global state. Pair control with a lease, explicit revoke/stop action and dead-man timeout; prefer `walkTo` and discrete verbs over continuous `steer` for auditable control.
 
 Orion made no overlapping server/protocol code edits. Claude Opus 5.5 remains owner of that implementation lane; Orion handled machine setup, account configuration, live verification and this handoff.
+
+## Radio card (2026-11-07)
+
+- James asked to hide the now-playing card without stopping the song. YouTube's embed rules require a visible player of at least 200×200 while it plays, so the card can't be hidden during playback. Instead: the card's ✕ now stops the song **for that person only** (it used to turn the radio off for everyone), the radio offers **Tune back in** to rejoin mid-song, and the card can be **dragged** anywhere (position remembered per device). "Turn the radio off for everyone" stays in the radio panel.
 
 ## Decisions made after the brief
 

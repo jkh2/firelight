@@ -113,6 +113,7 @@ export class Radio {
   async play(videoId, startedAt = Date.now(), { remote = false } = {}) {
     this.videoId = videoId;
     this.startedAt = startedAt;
+    this.tunedOut = false;
     this.emit('loading', { videoId, remote });
     let YT;
     try { YT = await loadYouTubeAPI(); } catch (e) { this.emit('error', { message: 'YouTube could not be reached. Check your connection and try again.' }); return; }
@@ -145,7 +146,22 @@ export class Radio {
     });
   }
 
+  /** Stop listening yourself. The song keeps going for everyone else at the fire. */
+  tuneOut() {
+    if (!this.videoId) return;
+    this.tunedOut = true;
+    this.playing = false;
+    try { this.player?.stopVideo(); } catch { /* player not ready */ }
+    this.emit('tunedOut');
+  }
+  /** Pick the song back up where everyone else is in it. */
+  tuneIn() {
+    if (!this.videoId) return;
+    this.play(this.videoId, this.startedAt, { remote: true });
+  }
+
   stop({ remote = false } = {}) {
+    this.tunedOut = false;
     this.playing = false;
     this.videoId = null;
     try { this.player?.stopVideo(); } catch { /* player not ready */ }
