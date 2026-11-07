@@ -94,27 +94,54 @@ function startGame(props, clips, models, animals) {
   cam.target.set(me.pos.x, 1.4, me.pos.z);
   const fireLook = new THREE.Vector3();
 
+  // Seated: first person, facing the fire, free to turn and look at the people beside you.
+  // Walking: third person, behind your shoulder. The camera glides between the two.
+  const FP = { maxTurn: 1.9, pitchMin: -0.75, pitchMax: 0.6, pitchRest: -0.12 };
+  // The aiming helper must be a camera: Object3D.lookAt points +z at the target, cameras point -z
+  const eye = new THREE.Vector3(), lookAt = new THREE.Vector3(), aim = new THREE.PerspectiveCamera();
+  let fpOn = false, blend = 0, wasSitting = false;
+
+  /** Head-covering meshes hidden in first person so you see out of your own eyes. */
+  function setOwnHeadVisible(v) {
+    me.avatar.body.traverse((o) => { if (o.isMesh && /Head|Hat|Helmet|Hood|Cape/i.test(o.name)) o.visible = v; });
+  }
+
   function updateCamera(dt, now) {
     if (cam.override) { camera.position.copy(cam.override.pos); camera.lookAt(cam.override.at); return; }
-    const sitting = me.mode === 'sitting';
-    const head = new THREE.Vector3(me.pos.x, me.pos.y + 1.45, me.pos.z);
-    let want;
-    if (sitting) {
-      // Locked to face the fire, over your own shoulder
-      const s = me.seat;
-      cam.yaw += (((s.facing + Math.PI - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * (1 - Math.exp(-dt * 3));
-      cam.pitch += (0.26 - cam.pitch) * (1 - Math.exp(-dt * 3));
-      fireLook.set(0, 0.9 + fire.size * 0.8, 0);
-      want = head.clone().lerp(fireLook, 0.42);
-    } else {
-      // Drift behind the walker when they're heading somewhere on their own
-      if (me.goal && me.speed > 0.5 && now - cam.lastDrag > 1.5) {
-        const behind = me.heading + Math.PI;
-        cam.yaw += (((behind - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * (1 - Math.exp(-dt * 1.2));
-      }
-      want = head;
+    const sitting = me.mode === 'sitting' && !me.standing;
+    if (sitting !== wasSitting) {
+      blend = 1; wasSitting = sitting;
+      if (sitting) { cam.look = 0; cam.fpPitch = FP.pitchRest; if (!seen.fpLook) { seen.fpLook = true; hint(touch ? 'Drag to look around at the people by the fire.' : 'Drag to look around at the people by the fire. Press any key to stand.', 4.5); } }
     }
-    cam.target.lerp(want, 1 - Math.exp(-dt * 8));
+    blend = Math.max(0, blend - dt * 1.6);
+    const k = blend > 0 ? 1 - Math.exp(-dt * 7) : 1; // glide only while switching views
+
+    if (sitting) {
+      // Eyes just in front of the head bone, looking out over the fire
+      const s = me.seat;
+      me.avatar.head.getWorldPosition(eye);
+      const yaw = s.facing + cam.look;
+      const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      eye.addScaledVector(new THREE.Vector3(Math.sin(s.facing), 0, Math.cos(s.facing)), 0.14).y += 0.2;
+      const cp = Math.cos(cam.fpPitch);
+      lookAt.copy(eye).add(new THREE.Vector3(fwd.x * cp, Math.sin(cam.fpPitch), fwd.z * cp));
+      aim.position.copy(eye); aim.lookAt(lookAt);
+      camera.position.lerp(eye, k);
+      camera.quaternion.slerp(aim.quaternion, k);
+      if (!fpOn && blend < 0.6) { fpOn = true; setOwnHeadVisible(false); }
+      // Keep the third-person rig parked behind you so standing up glides back out
+      cam.yaw = s.facing + Math.PI; cam.target.set(me.pos.x, me.pos.y + 1.45, me.pos.z);
+      return;
+    }
+    if (fpOn) { fpOn = false; setOwnHeadVisible(true); }
+
+    const head = new THREE.Vector3(me.pos.x, me.pos.y + 1.45, me.pos.z);
+    // Drift behind the walker when they're heading somewhere on their own
+    if (me.goal && me.speed > 0.5 && now - cam.lastDrag > 1.5) {
+      const behind = me.heading + Math.PI;
+      cam.yaw += (((behind - cam.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * (1 - Math.exp(-dt * 1.2));
+    }
+    cam.target.lerp(head, 1 - Math.exp(-dt * 8));
     const cp = Math.cos(cam.pitch);
     const dir = new THREE.Vector3(Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), Math.cos(cam.yaw) * cp);
     // Pull the camera in if a tree or rock stands between it and you
@@ -131,8 +158,9 @@ function startGame(props, clips, models, animals) {
     cam.boom = cam.boom == null ? dist : cam.boom + (dist - cam.boom) * (1 - Math.exp(-dt * (dist < cam.boom ? 14 : 3)));
     cam.pos.copy(dir).multiplyScalar(cam.boom).add(cam.target);
     cam.pos.y = Math.max(cam.pos.y, groundY(cam.pos.x, cam.pos.z) + 0.35);
-    camera.position.copy(cam.pos);
-    camera.lookAt(cam.target);
+    aim.position.copy(cam.pos); aim.lookAt(cam.target);
+    camera.position.lerp(cam.pos, k);
+    camera.quaternion.slerp(aim.quaternion, k);
   }
 
   // ---- thrown twigs ---------------------------------------------------------
@@ -326,8 +354,14 @@ function startGame(props, clips, models, animals) {
     drag.moved += Math.abs(dx) + Math.abs(dy);
     if (drag.moved > 7) {
       const k = touch ? 0.0065 : 0.0045;
-      if (me.mode !== 'sitting') cam.yaw -= dx * k;
-      cam.pitch = THREE.MathUtils.clamp(cam.pitch + dy * k * 0.8, -0.05, 1.25);
+      if (me.mode === 'sitting') {
+        // Turn your head: left and right to the people beside you, up to the stars, down to the fire
+        cam.look = THREE.MathUtils.clamp((cam.look ?? 0) + dx * k, -FP.maxTurn, FP.maxTurn);
+        cam.fpPitch = THREE.MathUtils.clamp((cam.fpPitch ?? FP.pitchRest) + dy * k * 0.8, FP.pitchMin, FP.pitchMax);
+      } else {
+        cam.yaw -= dx * k;
+        cam.pitch = THREE.MathUtils.clamp(cam.pitch + dy * k * 0.8, -0.05, 1.25);
+      }
       cam.lastDrag = performance.now() / 1000;
     }
   });

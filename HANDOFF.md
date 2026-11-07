@@ -95,6 +95,10 @@ James called a good stopping point for the night. State at close:
 
 **Housekeeping:** issue #1 has an unrelated advertising comment from an outside account; James may want to delete it. Its advice isn't part of our plan.
 
+## Seated first-person view (2026-11-07, James's request)
+
+Sitting now switches to first person: you look straight at the fire, drag left/right (up to about 110° each way) to see the people in the chairs beside you, and up/down to the stars or the coals. The camera glides in when you sit and back out to third person when you stand. Your own head is hidden only in your own view; everyone else still sees your full avatar.
+
 ## Radio card (2026-11-07)
 
 - James asked to hide the now-playing card without stopping the song. YouTube's embed rules require a visible player of at least 200×200 while it plays, so the card can't be hidden during playback. Instead: the card's ✕ now stops the song **for that person only** (it used to turn the radio off for everyone), the radio offers **Tune back in** to rejoin mid-song, and the card can be **dragged** anywhere (position remembered per device). "Turn the radio off for everyone" stays in the radio panel.
