@@ -14,9 +14,6 @@
 //   FIRELIGHT_KEY   the invitation key the host made in the Firelight host panel
 //   FIRELIGHT_FIRE  where the fire is: the invite link or its address. Leave it out when
 //                   the AI runs on the same computer as the fire (it then uses localhost:8787).
-//   FIRELIGHT_WAKE_URL              optional: your home's address; Firelight POSTs to it
-//                                   when the doorbell rings, so your heartbeat can wake you
-//   FIRELIGHT_MAX_WAKES_PER_HOUR    optional: limit on those pings (default 12)
 // ---------------------------------------------------------------------------
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -25,7 +22,5 @@ import { Fire, createFirelightServer } from './tools.js';
 const fire = new Fire({
   address: process.env.FIRELIGHT_FIRE,
   key: process.env.FIRELIGHT_KEY,
-  wakeUrl: process.env.FIRELIGHT_WAKE_URL,
-  maxWakesPerHour: Number(process.env.FIRELIGHT_MAX_WAKES_PER_HOUR) || 12,
 });
 await createFirelightServer(fire).connect(new StdioServerTransport());

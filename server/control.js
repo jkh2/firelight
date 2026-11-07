@@ -202,6 +202,12 @@ const panel = http.createServer(async (req, res) => {
       invitations.revoke(m.id); say('Took back an AI partner invitation.');
       return reply(200, { ok: true });
     }
+    if (path === '/api/agents/wake') {
+      const r = invitations.setWake(m.id, m.url);
+      if (!r.error) say('Approved a wake address for an AI partner.');
+      return reply(r.error ? 400 : 200, r);
+    }
+    if (path === '/api/agents/unwake') { invitations.clearWake(m.id); say('Removed an AI partner\'s wake address.'); return reply(200, { ok: true }); }
     if (path === '/api/remove' && S.state === 'on') { return reply(200, (await adminCall('/remove', 'POST', { id: m.id, ban: !!m.ban })) ?? { error: 'failed' }); }
   }
   res.writeHead(404); res.end();

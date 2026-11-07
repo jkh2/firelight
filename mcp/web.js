@@ -9,8 +9,11 @@
 // For apps that can't set a header, the key may instead end the address:
 //   https://<fire>/mcp/fl_…   (keep that address private; it is the key)
 //
-// Nothing is remembered between connections. When the partner's app ends the
-// session, or it goes quiet past the idle limit, the body leaves the fire.
+// There is no lasting connection over HTTP, so presence here is a lease: a
+// session stays only while requests keep coming (within idleSeconds) or while
+// the partner holds a rest lease it renewed. When neither holds, the session
+// ends and the body leaves the fire at once. Nothing is remembered between
+// connections.
 // ---------------------------------------------------------------------------
 
 import { randomUUID } from 'node:crypto';
@@ -21,12 +24,12 @@ import { Fire, createFirelightServer } from './tools.js';
  * @param {object} o
  * @param {string} o.fireAddress   loopback address of this fire's socket, e.g. ws://127.0.0.1:8787
  * @param {(key: string) => boolean} o.checkKey  is this a live invitation key?
- * @param {number} [o.idleMinutes] close a session nobody has used for this long
+ * @param {number} [o.idleSeconds] end a session with no requests and no rest lease after this long
  * @param {number} [o.maxSessions]
  * @param {(line: string) => void} [o.log]
  * @returns {(req, res) => Promise<void>} a handler for requests under /mcp
  */
-export function createWebConnector({ fireAddress, checkKey, idleMinutes = 20, maxSessions = 20, log = () => {} }) {
+export function createWebConnector({ fireAddress, checkKey, idleSeconds = 120, maxSessions = 20, log = () => {} }) {
   const sessions = new Map(); // session id -> { transport, fire, key, last }
 
   const deny = (res, status, message) => {
@@ -52,11 +55,14 @@ export function createWebConnector({ fireAddress, checkKey, idleMinutes = 20, ma
     log(`web connector: session ended (${why})`);
   }
 
-  // Quiet sessions close, and their bodies leave, the same as a person who walks away
+  // No requests in flight, none lately, and no rest lease: the partner has gone, so its body goes too
   setInterval(() => {
-    const cutoff = Date.now() - idleMinutes * 60000;
-    for (const [id, s] of sessions) if (s.last < cutoff && !s.fire.waiting.size) end(id, 'idle');
-  }, 60000).unref();
+    const now = Date.now();
+    for (const [id, s] of sessions) {
+      if (s.inFlight || s.fire.waiting.size) continue;
+      if (now - s.last > idleSeconds * 1000 && now > s.fire.leaseUntil) end(id, 'lease');
+    }
+  }, 5000).unref();
 
   return async function handle(req, res) {
     const key = keyFrom(req);
@@ -77,13 +83,16 @@ export function createWebConnector({ fireAddress, checkKey, idleMinutes = 20, ma
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (id) => { sessions.set(id, s); log('web connector: a partner connected'); },
       });
-      s = { transport, fire, key, last: Date.now() };
+      s = { transport, fire, key, last: Date.now(), inFlight: 0 };
       transport.onclose = () => { if (transport.sessionId && sessions.has(transport.sessionId)) end(transport.sessionId, 'closed'); };
       await createFirelightServer(fire).connect(transport);
     }
 
-    s.last = Date.now();
+    // Only the partner's own requests count as being here; an open notification stream (GET) doesn't
+    const counts = req.method === 'POST';
+    s.last = Date.now(); if (counts) s.inFlight++;
     try { await s.transport.handleRequest(req, res); }
     catch (e) { if (!res.headersSent) deny(res, 500, 'The web connector stumbled: ' + e.message); }
+    finally { if (counts) { s.inFlight--; s.last = Date.now(); } }
   };
 }

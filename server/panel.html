@@ -91,6 +91,9 @@
   .tag.ai { color: var(--gold); border-color: rgba(255, 194, 74, 0.45); }
   .actions { display: flex; gap: 6px; align-items: center; }
   .confirm { font-size: 12.5px; color: var(--ink-dim); }
+  .wake-line { display: block; font-size: 12px; color: var(--ink-dim); word-break: break-all; }
+  .wake-secret { display: block; font-size: 12px; margin: 6px 0; word-break: break-all; font-family: ui-monospace, Consolas, monospace; }
+  .wake-input { min-width: 220px; flex: 1; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line, #3a2a20); background: transparent; color: inherit; }
 
   details { color: var(--ink-dim); }
   summary { cursor: pointer; font-size: 13px; }
@@ -416,7 +419,7 @@ $('copyLink').addEventListener('click', (e) => copy(st.invite, e.currentTarget))
 $('copyInvite').addEventListener('click', (e) => copy(`Come sit by the fire with me 🔥 Tap to join: ${st.invite}`, e.currentTarget));
 
 // ---- AI partners --------------------------------------------------------------------
-let invites = { invitations: [], mcpPath: '' }, revoking = null;
+let invites = { invitations: [], mcpPath: '' }, revoking = null, waking = null, wakeShown = null;
 async function refreshAgents() {
   try { invites = await (await fetch('/api/agents', { cache: 'no-store' })).json(); renderInvites(); } catch { /* helper closed */ }
 }
@@ -436,13 +439,31 @@ function renderInvites() {
     const sm = document.createElement('span');
     sm.textContent = a.here ? `At the fire now as ${a.nameNow || a.lastName}` : a.lastSeen ? `Last came as ${a.lastName}, ${ago(a.lastSeen)}` : `Invited ${ago(a.createdAt)}, not used yet`;
     who.append(b, sm);
+    if (a.wake) { const w = document.createElement('span'); w.className = 'wake-line'; w.textContent = `Doorbell rings ${a.wake.url}`; who.append(w); }
+    if (wakeShown?.id === a.id) {
+      const w = document.createElement('span'); w.className = 'wake-secret';
+      w.textContent = `Signing secret (shown once; give it to their home): ${wakeShown.secret}`;
+      who.append(w, button('Copy secret', 'btn small', (e) => copyText(wakeShown.secret, e.currentTarget)), button('Done', 'btn small', () => { wakeShown = null; renderInvites(); }));
+    }
     const act = document.createElement('div'); act.className = 'actions';
-    if (revoking === a.id) {
+    if (waking === a.id) {
+      const inp = document.createElement('input'); inp.type = 'url'; inp.placeholder = "Their home's doorbell address (https://…)"; inp.className = 'wake-input';
+      const note = document.createElement('span'); note.className = 'confirm';
+      act.append(inp, button('Approve', 'btn small warm', async () => {
+        const r = await post('/api/agents/wake', { id: a.id, url: inp.value.trim() });
+        if (r.error) { note.textContent = r.error; return; }
+        waking = null; wakeShown = { id: a.id, secret: r.secret }; refreshAgents();
+      }), button('Cancel', 'btn small', () => { waking = null; renderInvites(); }), note);
+      setTimeout(() => inp.focus(), 0);
+    } else if (revoking === a.id) {
       const q = document.createElement('span'); q.className = 'confirm'; q.textContent = 'Take back this invitation?';
       act.append(q, button('Take back', 'btn small danger', async () => { await post('/api/agents/revoke', { id: a.id }); revoking = null; refreshAgents(); refresh(); }),
         button('Cancel', 'btn small', () => { revoking = null; renderInvites(); }));
     } else {
       if (a.here) act.append(button('End session', 'btn small', async () => { await post('/api/agents/stop', { id: a.id }); refreshAgents(); refresh(); }));
+      act.append(a.wake
+        ? button('Stop doorbell', 'btn small', async () => { await post('/api/agents/unwake', { id: a.id }); refreshAgents(); })
+        : button('Doorbell…', 'btn small', () => { waking = a.id; renderInvites(); }));
       act.append(button('Take back', 'btn small danger', () => { revoking = a.id; renderInvites(); }));
     }
     li.append(dot, who, act); ul.append(li);

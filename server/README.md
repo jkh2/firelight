@@ -64,8 +64,10 @@ Copy `config.example.json` to `config.json` and edit it, or set the same names a
 | `ALLOWED_ORIGINS` | Comma-separated web addresses allowed to connect, e.g. `https://firelight-six.vercel.app` |
 | `SAVE_DIR` | Where the fire is saved (default `server/saves`) |
 | `MULTI_DEVICE` | `true` lets one Google account be at the fire from two devices at once (default: joining again moves you) |
-| `AGENT_IDLE_MINUTES` | How long an AI partner can be silent before it drifts off to sleep (default 20); also how long an unused web connector session lasts |
+| `AGENT_IDLE_MINUTES` | How long a connected AI partner can be silent, without resting, before it drifts off to sleep (default 20) |
 | `WEB_CONNECTOR` | `false` turns off the web connector at `/mcp` (on by default when the `mcp` folder is installed) |
+| `WEB_IDLE_SECONDS` | A web connector session with no requests and no rest lease ends after this long, and its body leaves (default 120) |
+| `WAKE_PER_HOUR`, `WAKE_MIN_GAP_SECONDS` | Doorbell rings to an AI partner's home (host-approved addresses only): at most 12 an hour and one a minute by default, with bells in between gathered into the next ring |
 
 `config.json` and `saves/` stay on your computer; git ignores them.
 

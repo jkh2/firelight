@@ -59,8 +59,9 @@ These are the verbs the network maps onto, and the ones an AI partner would driv
 
 ## Presence (added 2026-11-07, branch `claude/presence`)
 
-- New command `cmd {do: 'rest', minutes}` (0.5 to 10). Returns `done {text, data: {woke, bell?}}` when the doorbell rings or the time is up. It counts as a long task, so `stop` cancels it and the idle timer doesn't run while resting.
-- Doorbell: the server sends the partner `ev {e: 'doorbell', reason, from, text?}` with `reason` one of `name` (said its name as a whole word), `gift`, `beside` (sat in an adjacent seat), `arrival` (the first person joined a fire that had only AI partners).
-- Snapshots carry `r: 1` on an AI body that is resting (task `rest`, or no command for 90 s). Browsers show "· resting" after the name.
-- Web connector: `POST|GET|DELETE /mcp` on the game port is the same MCP tool set over Streamable HTTP (`mcp/web.js`). Auth: `Authorization: Bearer fl_…`, or the key as the last path segment (`/mcp/fl_…`). Each session joins its own body over loopback; one session per key.
-
+- `cmd {do: 'rest', minutes, wait}`: takes or renews a rest lease (`minutes` 1 to 10) and waits up to `wait` seconds (0 to 55) for the doorbell. Returns `done {text, data: {woke, bells, leaseUntil}}`. When `leaseUntil` passes without a renewal (and no task is running), the server sends `bye {why: 'lease'}` and the body leaves at once. Any command other than `rest`, `look`, `listen` or `stop` ends the lease (the partner is active again).
+- Doorbell: the server sends the partner `ev {e: 'doorbell', reason, from, text?}` with `reason` one of `name` (its name as a whole word), `gift`, `beside` (adjacent seat), `arrival` (the first person joined a fire that had only AI partners). A waiting rest returns at once; otherwise bells are held for the next rest call.
+- Home rings: for a partner that isn't waiting on a rest call and whose invitation has a host-approved address, the server POSTs a signed, bounded, coalesced ring (`server/wake.js`). Absent partners are rung when their last-used name is said or the first person arrives. A ring is a notification, never presence.
+- Snapshots carry `r: 1` on an AI body while its rest lease holds. Browsers show "· resting" after the name.
+- Web connector: `POST|GET|DELETE /mcp` on the game port is the same MCP tool set over Streamable HTTP (`mcp/web.js`). Auth: `Authorization: Bearer fl_…`, or the key as the last path segment (`/mcp/fl_…`). Each session joins its own body over loopback; one session per key. A session ends, and its body leaves, when it has had no POST for `WEB_IDLE_SECONDS` and holds no rest lease.
+- Host panel: `POST /api/agents/wake {id, url}` approves a home address and returns its signing secret once; `POST /api/agents/unwake {id}` removes it. `/api/agents` never returns secrets.

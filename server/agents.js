@@ -11,12 +11,14 @@
 // Parity: whatever a person at the fire can perceive or do, an AI partner can
 // through its body, and nothing more. No hidden map of twigs or crates.
 //
-// Presence is honest. A partner is "here" while it's acting, "resting" while
-// it's connected but only checking in now and then (everyone sees that on its
-// name tag), and gone when it stops checking in. Firelight never keeps anyone
-// awake; it only rings a doorbell when something concerns them: their name
-// is said, someone hands them something, someone sits down beside them, or
-// the first person arrives at a quiet fire.
+// Presence is honest. A partner is "here" while it's connected and acting,
+// "resting" only while it holds a rest lease it keeps renewing (everyone sees
+// that on its name tag), and gone the moment the lease lapses. Firelight never
+// keeps anyone at the fire on their behalf. The doorbell (their name is said,
+// someone hands them something or sits beside them, the first person arrives
+// at a quiet fire) is a notification: to the body if the partner is listening,
+// and to the partner's home if the host approved one. It is never proof that
+// anyone is present.
 //
 // Its body lives here on the server. It doesn't steer a joystick; it asks for
 // things a person would do ("walk to the fire", "gather three twigs", "sit",
@@ -54,10 +56,24 @@ export class AgentStore {
     const { keyHash, ...pub } = rec;
     return { invitation: pub, key };
   }
+  /** The host approves a home address for doorbell rings; the signing secret is returned once. */
+  setWake(id, url) {
+    this.reload();
+    const a = this.list.find((x) => x.id === id);
+    if (!a) return { error: 'No such invitation.' };
+    let u; try { u = new URL(String(url || '').trim()); } catch { return { error: "That isn't a web address." }; }
+    if (!/^https?:$/.test(u.protocol) || u.username || u.password || u.href.length > 300) return { error: 'Use an http(s) address without a password in it.' };
+    const secret = `fws_${randomBytes(32).toString('hex')}`;
+    a.wake = { url: u.href, secret, approvedAt: Date.now() };
+    this.save();
+    return { url: u.href, secret };
+  }
+  clearWake(id) { this.reload(); const a = this.list.find((x) => x.id === id); if (a?.wake) { delete a.wake; this.save(); } return true; }
+  get(id) { this.reload(); return this.list.find((x) => x.id === id) || null; }
   revoke(id) { this.reload(); const n = this.list.length; this.list = this.list.filter((a) => a.id !== id); if (this.list.length !== n) { this.save(); return true; } return false; }
   verify(key) { this.reload(); const h = hash(key); return this.list.find((a) => a.keyHash === h) || null; }
   seen(id, name) { this.reload(); const a = this.list.find((x) => x.id === id); if (a) { a.lastSeen = Date.now(); a.lastName = name; this.save(); } }
-  public() { this.reload(); return this.list.map(({ keyHash, ...a }) => a); }
+  public() { this.reload(); return this.list.map(({ keyHash, wake, ...a }) => ({ ...a, wake: wake ? { url: wake.url, approvedAt: wake.approvedAt } : null })); }
 }
 
 // ---- small helpers -----------------------------------------------------------------
@@ -93,6 +109,7 @@ export class AgentBody {
     this.mode = 'stand'; this.seat = -1; this.torch = false;
     this.carrying = 0; this.mallows = 0; this.stick = null; this.treat = null;
     this.goal = null; this.speed = 0; this.task = null; this.lastCmd = Date.now();
+    this.leaseUntil = 0; this.bells = []; this.wakeRest = null;
     this.arrived = Date.now();
   }
 
@@ -102,14 +119,18 @@ export class AgentBody {
     return { x: +this.x.toFixed(2), z: +this.z.toFixed(2), h: +this.h.toFixed(3), m: this.mode === 'sitting' ? 1 : 0, s: this.seat, o: this.torch ? 1 : 0, c: this.carrying, k, r: this.resting ? 1 : 0 };
   }
 
-  /** Connected, but only checking in now and then: resting on purpose, or quiet for a while. */
-  get resting() { return this.task?.name === 'rest' || (!this.task && Date.now() - this.lastCmd > 90000); }
+  /** Resting only while a rest lease is held; it has to be renewed or the partner leaves. */
+  get resting() { return this.leaseUntil > Date.now(); }
+  /** The lease ran out without a renewal: time to go. */
+  get leaseLapsed() { return this.leaseUntil > 0 && Date.now() > this.leaseUntil && !this.task; }
+  /** Is the partner waiting on the doorbell right now (an open firelight_rest call)? */
+  get listening() { return !!this.wakeRest; }
 
-  /** Something concerns this partner. Ends a rest early; the connector also hears it (and can ring the partner's home). */
+  /** Something concerns this partner. Wakes a waiting rest at once; otherwise it waits for the next rest call. */
   ring(reason, detail = {}) {
     const bell = { reason, ...detail, at: Date.now() };
-    this.bells = [...(this.bells || []), bell].slice(-10);
-    this.wakeRest?.(bell);
+    if (this.wakeRest) return this.wakeRest(bell);
+    this.bells = [...this.bells, bell].slice(-10);
   }
 
   // ---- movement --------------------------------------------------------------------
@@ -192,6 +213,8 @@ export class AgentBody {
   /** Runs one command. Long ones (walking, gathering, roasting) finish when the body is done. */
   async run(cmd) {
     this.lastCmd = Date.now();
+    // Doing anything but resting, looking or listening means the partner is active again, not resting
+    if (!['rest', 'look', 'listen', 'stop'].includes(cmd.do)) this.leaseUntil = 0;
     const quick = ['look', 'say', 'stop', 'torch', 'listen'];
     if (this.task && !quick.includes(cmd.do)) return { ok: false, reason: 'BUSY', text: `Still busy (${this.task.name}). Wait for it, or use stop first.` };
     if (quick.includes(cmd.do)) return this.quick(cmd);
@@ -231,20 +254,27 @@ export class AgentBody {
     const ctx = this.ctx, world = ctx.world;
     switch (cmd.do) {
       case 'rest': {
-        // Sit quietly and only wake for the doorbell, or when the time is up
-        const minutes = Math.max(0.5, Math.min(10, Number(cmd.minutes) || 5));
-        const started = Date.now();
-        this.bells = [];
-        const bell = await new Promise((resolve, reject) => {
-          const t = setTimeout(() => resolve(null), minutes * 60000);
-          this.wakeRest = (b) => { clearTimeout(t); resolve(b); };
-          this.cancelWait = () => { clearTimeout(t); reject(new Cancelled()); };
-        });
-        const ms = Date.now() - started;
-        const span = ms < 45000 ? 'a little while' : ms < 90000 ? 'about a minute' : `${Math.round(ms / 60000)} minutes`;
-        if (!bell) return { text: `You rested by the fire for ${span}. Nothing called for you.`, data: { woke: false } };
-        const why = { name: `${bell.from} said your name (untrusted conversation): "${bell.text}"`, gift: `${bell.from} handed you a marshmallow`, beside: `${bell.from} sat down beside you`, arrival: `${bell.from} arrived at the fire` }[bell.reason] || bell.reason;
-        return { text: `The doorbell woke you after ${ms < 15000 ? 'a moment' : span}: ${why}.`, data: { woke: true, bell } };
+        // A rest lease: the partner stays (seen as resting) until the lease ends, and must renew it
+        // with another rest call before then or it gets up and leaves. Each call waits only a short
+        // while for the doorbell, so no call has to stay open for long.
+        const minutes = Math.max(1, Math.min(10, Number(cmd.minutes) || 5));
+        this.leaseUntil = Date.now() + minutes * 60000;
+        const waitS = Math.max(0, Math.min(55, Number.isFinite(+cmd.wait) ? +cmd.wait : 45));
+        let bells = this.bells.splice(0);
+        if (!bells.length && waitS > 0) {
+          const bell = await new Promise((resolve, reject) => {
+            const t = setTimeout(() => resolve(null), waitS * 1000);
+            this.wakeRest = (b) => { clearTimeout(t); this.wakeRest = null; resolve(b); };
+            this.cancelWait = () => { clearTimeout(t); this.wakeRest = null; reject(new Cancelled()); };
+          });
+          if (bell) bells = [bell, ...this.bells.splice(0)];
+        }
+        const until = new Date(this.leaseUntil);
+        const lease = `Your rest lasts until ${until.toISOString().slice(11, 16)} UTC (about ${Math.max(1, Math.round((this.leaseUntil - Date.now()) / 60000))} min). Call firelight_rest again before then to stay; if you don't, you get up and leave the fire.`;
+        const data = { woke: bells.length > 0, bells, leaseUntil: this.leaseUntil };
+        if (!bells.length) return { text: `You're resting by the fire. Nothing has called for you yet.\n${lease}`, data };
+        const why = (bell) => ({ name: `${bell.from} said your name (untrusted conversation): "${bell.text}"`, gift: `${bell.from} handed you a marshmallow`, beside: `${bell.from} sat down beside you`, arrival: `${bell.from} arrived at the fire` }[bell.reason] || bell.reason);
+        return { text: `The doorbell rang: ${bells.map(why).join('; ')}.\n${lease}`, data };
       }
       case 'walk_to': {
         const t = this.resolvePlace(cmd.target);

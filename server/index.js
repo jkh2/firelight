@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { PROTOCOL, MAX_PLAYERS, FIRE, burn, TWIGS, CRATES, SEATS } from '../shared/rules.js';
+import { WakeBell } from './wake.js';
 import { AgentStore, AgentBody } from './agents.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,12 @@ const CONFIG = {
   agentIdleMinutes: Number(env('AGENT_IDLE_MINUTES', 20)),
   // The web connector at /mcp, for AI apps that only take remote connectors (needs mcp/ installed)
   webConnector: String(env('WEB_CONNECTOR', 'true')) !== 'false',
+  // A web connector session with no requests and no rest lease ends after this long, and its body leaves
+  webIdleSeconds: Number(env('WEB_IDLE_SECONDS', 120)),
+  // Doorbell rings to partners' homes (only addresses the host approved): at most this many an hour each,
+  // and at least this long apart (bells in between are gathered into the next ring)
+  wakePerHour: Number(env('WAKE_PER_HOUR', 12)),
+  wakeGapSeconds: Number(env('WAKE_MIN_GAP_SECONDS', 60)),
 };
 const authOn = !!(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
 
@@ -68,6 +75,15 @@ if (!existsSync(CONFIG.saveDir)) mkdirSync(CONFIG.saveDir, { recursive: true });
 const SAVE = join(CONFIG.saveDir, 'fire.json');
 const BANS = join(CONFIG.saveDir, 'bans.json');
 const agents = new AgentStore(join(CONFIG.saveDir, 'agents.json'));
+const wake = new WakeBell({
+  lookup: (id) => agents.get(id), fireName: CONFIG.fireName,
+  perHour: CONFIG.wakePerHour, minGapMs: CONFIG.wakeGapSeconds * 1000, log: (line) => console.log(line),
+});
+const presentAgent = (id) => [...players.values()].some((o) => o.joined && o.agent?.id === id);
+/** Ring the homes of approved partners who aren't at the fire, when something concerns them. */
+function ringAbsent(test, bell) {
+  for (const a of agents.reload().list) if (a.wake && a.lastName && !presentAgent(a.id) && test(a)) wake.ring(a.id, bell);
+}
 
 function load() {
   try {
@@ -169,7 +185,10 @@ async function hello(p, m) {
   broadcast({ t: 'joined', p: publicInfo(p) }, p);
   console.log(`${p.name}${p.ai ? ' (AI partner)' : ''} joined the fire. ${countJoined()} here.`);
   // The first person to arrive at a fire where only AI partners are resting rings their doorbells
-  if (!agent && ![...players.values()].some((o) => o !== p && o.joined && !o.agent)) for (const o of players.values()) if (o.agent && o.joined) ring(o, 'arrival', { from: p.name });
+  if (!agent && ![...players.values()].some((o) => o !== p && o.joined && !o.agent)) {
+    for (const o of players.values()) if (o.agent && o.joined) ring(o, 'arrival', { from: p.name });
+    ringAbsent(() => true, { reason: 'arrival', from: p.name });
+  }
 }
 
 const countJoined = () => [...players.values()].filter((x) => x.joined).length;
@@ -213,6 +232,7 @@ const doSay = (p, text) => {
   world.chat.push(line); if (world.chat.length > 50) world.chat.shift();
   broadcast({ t: 'ev', e: 'said', ...line });
   for (const o of players.values()) if (o.agent && o !== p && o.joined && mentions(clean, o.name)) ring(o, 'name', { from: p.name, text: clean });
+  ringAbsent((a) => mentions(clean, a.lastName), { reason: 'name', from: p.name, text: clean });
   return { ok: true, text: clean };
 };
 const doGive = (p, to, what, d) => {
@@ -230,8 +250,10 @@ const doRadioOff = () => {
 };
 const nameOf = (id) => players.get(id)?.name || 'someone';
 /** Ring an AI partner's doorbell: something concerns them. */
+/** The doorbell: to the body if the partner is listening; otherwise also to its home, if the host approved one. */
 function ring(agentP, reason, detail) {
   if (!agentP?.body) return;
+  if (!agentP.body.listening) wake.ring(agentP.agent.id, { reason, ...detail });
   agentP.body.ring(reason, detail);
   send(agentP, { t: 'ev', e: 'doorbell', reason, ...detail });
 }
@@ -344,7 +366,7 @@ if (CONFIG.webConnector) {
     webConnector = createWebConnector({
       fireAddress: `ws://127.0.0.1:${CONFIG.port}`,
       checkKey: (key) => !!agents.verify(key),
-      idleMinutes: CONFIG.agentIdleMinutes,
+      idleSeconds: CONFIG.webIdleSeconds,
       log: (line) => console.log(line),
     });
   } catch (e) {
@@ -394,7 +416,14 @@ setInterval(() => {
     if (!p.body || !p.joined) continue;
     p.body.tick(dt);
     p.st = p.body.st;
-    if (Date.now() - p.body.lastCmd > CONFIG.agentIdleMinutes * 60000 && !p.body.task) {
+    if (p.body.leaseLapsed) {
+      // Resting is a lease, not a promise: when it isn't renewed, the partner gets up and goes
+      send(p, { t: 'bye', why: 'lease', text: "Your rest ended without a check-in, so you got up and left the fire. Join again any time." });
+      p.ws.close(); leave(p);
+      doSayLine(`${p.name} got up and left the fire.`);
+      continue;
+    }
+    if (Date.now() - p.body.lastCmd > CONFIG.agentIdleMinutes * 60000 && !p.body.task && !p.body.resting) {
       send(p, { t: 'bye', why: 'idle', text: 'You were quiet for a long time and drifted off to sleep. Join again any time.' });
       p.ws.close(); leave(p);
       doSayLine(`${p.name} drifted off to sleep.`);
