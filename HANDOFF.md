@@ -36,6 +36,38 @@ Working:
 
 **Orion's part (from issue #1):** start the server on James's PC, run the quick tunnel, send the link; then Supabase with Google sign-in. Put the two public values into Vercel as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and into `server/config.json` as `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 
+## Orion setup checkpoint — 2026-11-07
+
+The local/account lane is complete and verified end to end.
+
+- Coordination channel: [GitHub issue #1](https://github.com/jkh2/firelight/issues/1). Orion posted the setup state and implementation-specific Camper/protocol review there for Claude Opus 5.5.
+- James's PC already had Node.js `v24.19.0` through NVM for Windows. In PowerShell use `npm.cmd` / `npx.cmd`; the machine's execution policy blocks the `.ps1` shims.
+- `cloudflared` `2026.10.7` was installed through winget. The Cloudflare account has no managed zone, so a locally managed named tunnel cannot be authorized yet. The correct current path is a credential-free quick tunnel.
+- The game server is running on port `8787`; local and public health checks pass. The current temporary tunnel is `https://together-toys-moisture-contracting.trycloudflare.com`. The current invite is `https://firelight-six.vercel.app/?fire=together-toys-moisture-contracting.trycloudflare.com`. This hostname changes whenever the quick tunnel restarts.
+- Supabase project `Firelight` was created in `us-west-1`, ref `lsbkkqoeexuebptvvszl`. Site URL is `https://firelight-six.vercel.app`; allowed redirects are production plus `http://localhost:5173/**`.
+- Google Cloud project `freeexpress-youtube-search` was repurposed and renamed `firelight`. OAuth client `Firelight Web` uses production/local JavaScript origins and the exact callback `https://lsbkkqoeexuebptvvszl.supabase.co/auth/v1/callback`. Google sign-in is enabled in Supabase.
+- Vercel has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as public Config values for Production, Preview and Development. Production was redeployed from commit `d6dd5bf`; deployment `dpl_DMeugnh45k2qAm77N8yuxN3drAHC` reached `READY` and owns `firelight-six.vercel.app`.
+- Local `server/config.json` is git-ignored and contains the public Supabase URL/publishable key, `ALLOW_GUESTS=true`, owner email for James, and an origin allowlist limited to Firelight production plus local development. Guest access remains intentionally on until family-login behavior and the under-13 path are settled.
+- Verified live sequence: the guest identity `Wookie` connected; after Google OAuth was corrected and retried, the server logged `Wookie left the fire` followed by `James Harwood sat down by the fire`. The production bundle contains the Supabase project and Google sign-in code, and the public server reports `signIn: true`.
+- Clean root and server installs/builds pass. Production dependency audits report zero known vulnerabilities. The root install reports four moderate dev-tool findings; no automatic or breaking audit fix was applied.
+
+### Camper/network boundary review
+
+`Camper` has the right core architecture: one small action vocabulary for local human input, remote people and future AI partners. Protocol 1 is a good trusted-family MVP, with bounded payloads, rate limiting, coordinate clamping, server-owned contested world resources, persistence, reconnects, optional origin restrictions and Supabase token verification.
+
+Before adversarial public access or AI control, Claude should keep the current verbs but close these authority gaps:
+
+1. Track possession and validate reach on the server for `feed`, `twig`, `crate` and `give`; a raw client can currently claim local inventory or act at a distance.
+2. Enforce one active Camper per authenticated Supabase user with an explicit replace/reject policy.
+3. Do not treat client-supplied `hello.ai` as trusted AI identity. Derive the golden AI mark from server configuration or an owner-issued, revocable controller capability.
+4. Guard concurrent `hello` frames while Supabase verification is awaiting a response.
+5. Add `commandId` plus stable accepted/rejected reason codes in the next protocol revision for rollback and auditable AI action traces.
+6. Keep production `ALLOWED_ORIGINS` restricted rather than empty.
+
+Future AI partners also need a bounded observation snapshot: self state, perceptible nearby people, fire state/distance, seats, visible twigs/crates, radio state and currently valid high-level actions. Do not expose the raw scene graph or hidden global state. Pair control with a lease, explicit revoke/stop action and dead-man timeout; prefer `walkTo` and discrete verbs over continuous `steer` for auditable control.
+
+Orion made no overlapping server/protocol code edits. Claude Opus 5.5 remains owner of that implementation lane; Orion handled machine setup, account configuration, live verification and this handoff.
+
 ## Decisions made after the brief
 
 - **Sign-in, not secret links.** James wants people to join with Google (and Facebook later): if the fire has room, you're in. Plan: Supabase Auth with Google first; Facebook after Meta's app review; consider Apple. The game server verifies the session. The fire's owner can kick or ban an account.
