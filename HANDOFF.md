@@ -85,6 +85,14 @@ James called a good stopping point for the night. State at close:
 4. Phase 3 voice: James makes a free LiveKit Cloud account; the API secret goes only in `server/config.json`.
 5. Ideas waiting: shared animals, the lake and raft, trails to new places, survival as an optional per-fire mode, AI partners at the fire with Orion's observation snapshot and a revocable controller lease.
 
+**Long-range vision: a world of many fires** (James, 2026-11-07): a large world with many small fires, each with its own group gathered around, and people traveling between them along trails through the dark. Design notes so far:
+- Each fire stays small (up to 20) and runs as its own room on the server. The world is the trails that link them.
+- The walk between fires through the dark doubles as the loading time for the next fire, so travel feels seamless.
+- Distant open fires glow through the trees; private fires stay hidden unless you hold their invite.
+- A signpost at each clearing's edge names where paths lead and how many are gathered there.
+- Name, look, and carried items (marshmallows) travel with you.
+- Path to it: hardening and voice, then a rented server with a domain and "light your own fire" (private, invite-only), then safety tools (mute, block, report, host kick/ban), a privacy policy and terms, accounts 13+ with kids on a parent's account, and only then open fires in a public directory.
+
 **Housekeeping:** issue #1 has an unrelated advertising comment from an outside account; James may want to delete it. Its advice isn't part of our plan.
 
 ## Radio card (2026-11-07)
