@@ -20,12 +20,16 @@ import { AgentStore } from './agents.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fileConfig = existsSync(join(here, 'config.json')) ? JSON.parse(readFileSync(join(here, 'config.json'), 'utf8')) : {};
 const env = (k, d) => process.env[k] ?? fileConfig[k] ?? d;
+const cloudflaredDefault = process.platform === 'win32'
+  ? [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]
+    .filter(Boolean).map((p) => join(p, 'cloudflared', 'cloudflared.exe')).find(existsSync) || 'cloudflared'
+  : 'cloudflared';
 const CFG = {
   panelPort: Number(env('CONTROL_PORT', 8790)),
   gamePort: Number(env('PORT', 8787)),
   adminPort: Number(env('ADMIN_PORT', 8788)),
   site: String(env('PUBLIC_SITE', 'https://firelight-six.vercel.app')).replace(/\/$/, ''),
-  cloudflared: env('CLOUDFLARED', 'cloudflared'),
+  cloudflared: env('CLOUDFLARED', cloudflaredDefault),
   // A permanent address, once you have a named tunnel on your own domain:
   tunnelName: env('TUNNEL_NAME', ''),
   publicHost: env('PUBLIC_HOST', ''),

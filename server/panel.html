@@ -449,7 +449,7 @@ $('makeInvite').addEventListener('click', async () => {
   $('inviteNote').value = '';
   $('keyText').textContent = r.key;
   const path = r.mcpPath;
-  $('setupClaude').textContent = `claude mcp add firelight -e FIRELIGHT_KEY=${r.key} -- node "${path}"`;
+  $('setupClaude').textContent = `claude mcp add --scope user firelight -e FIRELIGHT_KEY=${r.key} -- node "${path}"`;
   $('setupCodex').textContent = `# in ~/.codex/config.toml\n[mcp_servers.firelight]\ncommand = "node"\nargs = [${JSON.stringify(path)}]\nenv = { FIRELIGHT_KEY = "${r.key}" }`;
   $('newKey').hidden = false;
   refreshAgents();

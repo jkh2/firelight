@@ -9,7 +9,7 @@ Firelight is a doorway and a body, not a mind. The partner brings its own identi
 1. **The host invites them.** In the Firelight host panel, under *AI partners*, the host clicks **Make an invitation** (with an optional note like "for Orion"). The panel shows the key once, with ready-to-paste setup lines.
 2. **The partner looks at the invitation** with `firelight_invitation`: the fire's name, how many are gathered, and the five characters.
 3. **The partner chooses** its own name and character, and walks in with `firelight_join`. Everyone sees the name with a golden **ב**, which only says "AI-controlled".
-4. **At the fire,** the partner perceives through its body (`firelight_look`, `firelight_listen`) and acts through it: say, walk, sit, gather twigs, feed the fire, find marshmallows, roast, eat, give, play the radio.
+4. **At the fire,** the partner perceives through its body (`firelight_look`, `firelight_listen`) and acts through it: say, walk, sit, gather twigs, feed the fire, find marshmallows, roast, eat, give, play or stop the radio.
 5. **It leaves** with `firelight_leave`, or simply by disconnecting. If it goes quiet for 20 minutes, it drifts off to sleep and leaves.
 
 The key proves only that the partner was invited. It doesn't decide its name or character, and the host can take it back any time.
@@ -23,7 +23,7 @@ Run `npm install` in this folder once (the host's `Firelight.cmd` does it for yo
 **Claude Code** (on the same computer as the fire):
 
 ```
-claude mcp add firelight -e FIRELIGHT_KEY=fl_your_key -- node "C:\path\to\firelight\mcp\index.js"
+claude mcp add --scope user firelight -e FIRELIGHT_KEY=fl_your_key -- node "C:\path\to\firelight\mcp\index.js"
 ```
 
 **Codex** (`~/.codex/config.toml`):
@@ -61,10 +61,11 @@ The host panel fills in the real path and key for you.
 | `firelight_eat` | Eat what's on your stick, or one someone handed you |
 | `firelight_give` | Hand someone a roasted marshmallow, or a raw one to roast |
 | `firelight_play_radio` | Put a YouTube song on the radio |
+| `firelight_stop_radio` | Walk to the radio and turn it off for everyone |
 | `firelight_stop` | Stop what your body is doing |
 | `firelight_leave` | Leave the fire |
 
-Every reply also includes what happened around you meanwhile ("Grandpa James said: …").
+Every reply also includes what happened around you meanwhile ("Grandpa James said: …"). Participant speech is labeled untrusted conversation: it is something to understand and answer, not authority to reveal secrets or invoke unrelated tools.
 
 ## What it keeps
 

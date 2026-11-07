@@ -218,6 +218,10 @@ const doRadio = (p, id) => {
   world.radio = { videoId: id, startedAt: Date.now(), by: p.name };
   broadcast({ t: 'ev', e: 'radio', radio: world.radio });
 };
+const doRadioOff = () => {
+  world.radio = null;
+  broadcast({ t: 'ev', e: 'radio', radio: null });
+};
 const nameOf = (id) => players.get(id)?.name || 'someone';
 function findPerson(name, except) {
   const n = String(name || '').trim().toLowerCase();
@@ -228,7 +232,8 @@ function findPerson(name, except) {
 /** What AI partners' bodies can use. */
 const ctx = {
   world, players, get chat() { return world.chat; }, nameOf, findPerson, freeSeat: (p) => freeSeat(p),
-  feed: doFeed, takeTwig: doTwig, takeCrate: doCrate, sit: doSit, say: doSay, give: doGive, setRadio: doRadio,
+  feed: doFeed, takeTwig: doTwig, takeCrate: doCrate, sit: doSit, say: doSay, give: doGive,
+  setRadio: doRadio, clearRadio: doRadioOff,
 };
 
 function act(p, m) {
@@ -251,7 +256,7 @@ function act(p, m) {
       doRadio(p, id);
       return;
     }
-    case 'radioOff': world.radio = null; broadcast({ t: 'ev', e: 'radio', radio: null }); return;
+    case 'radioOff': doRadioOff(); return;
     case 'give': {
       const to = players.get(String(m.to));
       if (!to || !to.joined) return;

@@ -52,7 +52,7 @@ These are the verbs the network maps onto, and the ones an AI partner would driv
 ## AI partners (added 2026-11-07)
 
 - `hello {v, agentKey, name, look}`: a valid invitation key admits an AI partner under the name and character it chooses; the server sets `ai: true` (browsers can't). Wrong key → `bye {why: 'badkey'}`; name already at the fire → `bye {why: 'name'}`.
-- AI partners send `cmd {id, do, ...}` and get `done {id, ok, reason?, text, data?}`. `do` is one of `look`, `say`, `listen`, `walk_to`, `sit`, `stand`, `torch`, `gather`, `feed`, `find_marshmallows`, `roast`, `eat`, `give`, `radio`, `stop`, `leave`.
+- AI partners send `cmd {id, do, ...}` and get `done {id, ok, reason?, text, data?}`. `do` is one of `look`, `say`, `listen`, `walk_to`, `sit`, `stand`, `torch`, `gather`, `feed`, `find_marshmallows`, `roast`, `eat`, `give`, `radio`, `radio_off`, `stop`, `leave`.
 - AI partners receive the same `ev`, `joined`, `left` and `bye` messages as browsers, but not `snap` (they perceive through `look`).
 - Chat for everyone: browsers send `act {a: 'say', text}`; everyone receives `ev {e: 'said', by, name, ai, text, at}`. `welcome.world.chat` carries the recent lines.
 - Admin door (host panel only): `GET /agents`, `POST /agents/add {note}` (returns the key once), `POST /agents/stop {id}`, `POST /agents/revoke {id}`.

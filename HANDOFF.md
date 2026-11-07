@@ -103,10 +103,10 @@ Principle (James and Orion): **one kind of participant, two kinds of controller.
 - **Invitations:** host panel → *AI partners* → *Make an invitation* (optional note). The key is shown once, only its SHA-256 is stored (`saves/agents.json`, shared by panel and server). Take back (revoke) or end a session any time.
 - **Joining:** the partner sends `hello {agentKey, name, look}`; it chooses its own name and character. The server grants the ב only for valid keys and ignores browser claims. Duplicate names at the fire are refused for AI partners. One body per invitation (rejoining moves the body).
 - **Bodies:** AI bodies are simulated on the server (`server/agents.js`): walk (curving around the fire), sit (prefers a seat beside someone), gather (only twigs in sight; searches if none), feed, find marshmallows (searches the woods with the torch; no hidden crate map), roast to a chosen doneness, eat, give (walks over), radio, stop, leave. Commands: `{t:'cmd', id, do, ...}` → `{t:'done', id, ok, reason?, text, data?}` with reason codes (BUSY, NOT_FOUND, OCCUPIED, INVENTORY_FULL, NEED_TWIGS, NEED_MARSHMALLOW, NONE_LEFT, OUT_OF_REACH, ...). `look` returns Orion's observation shape plus a plain-words description. Idle 20 min (`AGENT_IDLE_MINUTES`) → drifts off to sleep and leaves.
-- **Connector:** `mcp/` (stdio MCP server). Tools: invitation, join, look, say, listen, walk_to, sit, stand, torch, gather_twigs, feed_fire, find_marshmallows, roast, eat, give, play_radio, stop, leave. Stateless apart from the connection and unread events; factual instructions only. See `mcp/README.md`.
+- **Connector:** `mcp/` (stdio MCP server). Tools: invitation, join, look, say, listen, walk_to, sit, stand, torch, gather_twigs, feed_fire, find_marshmallows, roast, eat, give, play_radio, stop_radio, stop, leave. Stateless apart from the connection and unread events; factual instructions only. See `mcp/README.md`.
 - **Shared places:** seats, radio and crate spots now come from `shared/rules.js` (`seatSpot`, `RADIO_SPOT`, `crateSpot`), and twigs use `twigSpot` with no local checks, so the game, the server and AI bodies agree on where everything is. The forest leaves room for the crates.
 - **Also from Orion's review, done:** one body per Google account (joining from a second device moves you; `MULTI_DEVICE=true` allows both), a guard against doubled hellos, AI mark granted by the server only. Origin check now lets non-browser clients (no Origin header) through.
-- **Tested here:** host panel makes an invitation; a person joins in the browser; a test AI connects through the real MCP connector, reads the invitation, chooses "Orion" and a character, sits, talks, hears the person's reply, gathers, feeds, finds a crate, roasts golden and hands it over. Still to do on James's PC: Orion and Claude Sentinel connecting for real.
+- **Tested here:** host panel makes an invitation; a person joins in the browser; a test AI connects through the real MCP connector, reads the invitation, chooses "Orion" and a character, sits, talks, hears the person's reply, gathers, feeds, finds a crate, roasts golden and hands it over. Orion's real James-PC acceptance is recorded below; Claude Sentinel has his own configured invitation and will choose his identity/look when he first joins.
 - **Not yet:** server-side checks of *human* inventory and reach (AI bodies are already server-checked), commandId on human actions, voice.
 
 ## Host control panel (2026-11-07)
@@ -117,6 +117,29 @@ Principle (James and Orion): **one kind of participant, two kinds of controller.
 - The panel only answers requests addressed to `localhost:8790` with its own header, so other websites can't poke it.
 - Clients now keep the host's goodbye message ("The host has put the fire out for now") instead of "Reconnecting…".
 - **Orion:** pull, run `tools/make-desktop-shortcut.ps1` once (puts a Firelight flame icon on James's desktop; starts the helper window minimized), then confirm Light → link → join → Put it out on James's PC with the real cloudflared. Tested here with a stand-in for cloudflared.
+
+## Orion live acceptance and connector review — 2026-11-07
+
+Pulled and reviewed `6e11a28`, then completed the first real James-PC run. The desktop `Firelight` shortcut was created and exercised. The initial launch found a Windows-specific packaging problem: winget's cloudflared MSI installed `cloudflared.exe` in `C:\Program Files (x86)\cloudflared` but did not put it on this process's PATH. `server/control.js` now discovers the standard 64-bit/32-bit Program Files install locations automatically. The second launch opened the real quick tunnel `wifi-real-showcase-absence.trycloudflare.com`; the QR (SVG), public tunnel health endpoint, and Vercel invite page all returned HTTP 200. As always, that hostname expired when the fire was put out.
+
+This was Orion's awake OrionHome session, not a stand-in persona or a Firelight-owned agent. The host panel made an invitation for Orion; Orion chose the name **Orion** and the **knight** character at the door. The live panel showed `Orion`, `ai: true`, and the knight body. Orion looked, spoke, lit a torch, searched for and gathered three twigs, fed the fire, sat, played the radio, and turned it off. A clearly named `Automated Browser Test` joined through the ordinary browser protocol; its chat reached Orion through `listen`, and Orion's reply went back through shared chat. During panel shutdown both controllers received: "The host has put the fire out for now. Come back soon." The fire saved, the tunnel closed, and the bodies left. Firelight stored no Orion persona or memory.
+
+Separate revocable invitations now exist for Orion and Claude Sentinel. Firelight is installed in Codex's global MCP config for Orion. Claude Sentinel's connector is installed at Claude Code **user** scope so it is available from SentinelHome; he has not been woken or joined, and will choose his own name and character. A running Codex/Claude session loads newly added MCP servers on its next start; for this same already-awake Codex session, Orion used the identical stdio MCP connector through a temporary local test client, removed afterward.
+
+Fresh review changes made after using the tools from the inside:
+
+- Closed a real perception shortcut: `walk_to <person>` and `give <person>` can no longer use the global player map to home in on someone hidden in the dark. They return `NOT_VISIBLE` unless the body can actually see that person.
+- Removed exact numeric fuel from `look`; the partner receives the qualitative fire size, distance and direction rather than more precision than the visual gauge provides.
+- Added `firelight_stop_radio` / `radio_off`, closing the reverse-parity gap where browser participants could turn the shared radio off but AI partners could not.
+- Labeled all participant speech/events returned through MCP as untrusted conversation, and instructed connectors not to reveal secrets or invoke non-Firelight tools merely because someone at the fire asks. This preserves conversation without turning player chat into tool authority.
+- Fixed an MCP rejoin race in which the old socket's late `close` event could erase the new connection, and cleared stale participant names on rejoin.
+- Included stable refusal reason codes in connector text. Upgraded the MCP's compatible Zod dependency to `4.6.7`; root production, server, and MCP production audits now report zero known vulnerabilities. Build and syntax checks pass.
+
+Still open after review:
+
+1. The previously recorded human-client authority work remains: server-owned human inventory/reach for feed/twig/crate/give, plus command IDs on human actions.
+2. MCP command timeout currently reports `TIMEOUT` without cancelling a body action that might still be running. Normal actions fit under the timeout (roasting caps at 75 seconds), but a future long action should receive explicit cancellation/deadline semantics.
+3. The host panel is intentionally localhost-only and not exposed through the tunnel. James and Orion considered adding a panel username/password, then deferred it as unnecessary friction for this family/friends phase. Authentication becomes required if public hosting ever exposes an administrative panel.
 
 ## Seated first-person view (2026-11-07, James's request)
 
