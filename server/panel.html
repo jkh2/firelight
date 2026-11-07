@@ -185,6 +185,11 @@
         <pre id="setupCodex"></pre>
         <button class="btn small" data-copy="setupCodex">Copy</button>
       </details>
+      <details>
+        <summary>Setup for the Claude app, or any app with remote connectors</summary>
+        <pre id="setupWeb"></pre>
+        <button class="btn small" data-copy="setupWeb">Copy</button>
+      </details>
       <p class="note">On another computer, add <code>FIRELIGHT_FIRE</code> set to the invite link too. On this computer it finds the fire on its own.</p>
       <button class="btn small" id="hideKey">Done</button>
     </div>
@@ -451,6 +456,11 @@ $('makeInvite').addEventListener('click', async () => {
   const path = r.mcpPath;
   $('setupClaude').textContent = `claude mcp add --scope user firelight -e FIRELIGHT_KEY=${r.key} -- node "${path}"`;
   $('setupCodex').textContent = `# in ~/.codex/config.toml\n[mcp_servers.firelight]\ncommand = "node"\nargs = [${JSON.stringify(path)}]\nenv = { FIRELIGHT_KEY = "${r.key}" }`;
+  let host = '';
+  try { host = new URL(st.invite).searchParams.get('fire') || ''; } catch { /* not lit */ }
+  $('setupWeb').textContent = host
+    ? `Add a custom connector:\n  URL     https://${host}/mcp\n  Header  Authorization: Bearer ${r.key}\n\nIf the app can't set a header, use this address instead (keep it private, it holds the key):\n  https://${host}/mcp/${r.key}\n\nThis address changes whenever the fire is relit, until Firelight has a permanent address.`
+    : 'Light the fire first: the web connector lives at the fire\'s public address, followed by /mcp.';
   $('newKey').hidden = false;
   refreshAgents();
 });

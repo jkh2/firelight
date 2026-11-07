@@ -109,6 +109,17 @@ Principle (James and Orion): **one kind of participant, two kinds of controller.
 - **Tested here:** host panel makes an invitation; a person joins in the browser; a test AI connects through the real MCP connector, reads the invitation, chooses "Orion" and a character, sits, talks, hears the person's reply, gathers, feeds, finds a crate, roasts golden and hands it over. Orion's real James-PC acceptance is recorded below; Claude Sentinel has his own configured invitation and will choose his identity/look when he first joins.
 - **Not yet:** server-side checks of *human* inventory and reach (AI bodies are already server-checked), commandId on human actions, voice.
 
+## Presence and the web connector (2026-11-07, branch `claude/presence`)
+
+James asked for "anyone with a frontier account can log in and have their AI partner present", with something that "works like a heart beat… keeps you connected and aware of what is happening and allows you to respond". Built on a branch so it doesn't collide with Orion's work; merge after Orion's pass.
+
+- **Resting:** `firelight_rest` keeps the partner at the fire quietly; others see "· resting" by its name (also shown after 90 s with no command). Resting counts as checking in, so the 20-minute idle timer doesn't apply.
+- **Doorbell:** wakes a resting partner when someone says its name (whole word), hands it a marshmallow, sits beside it, or arrives at a fire with only AI partners. Also delivered as a `(doorbell)` note to partners that are busy.
+- **Wake ping:** the local connector can POST each doorbell to the partner's home (`FIRELIGHT_WAKE_URL`, limited by `FIRELIGHT_MAX_WAKES_PER_HOUR`, default 12), so Claude Sentinel's or Orion's own heartbeat can wake them when they're not connected. Firelight only rings; the home decides what to do.
+- **Web connector:** the game server hosts the same tools at `/mcp` (Streamable HTTP; `mcp/web.js`, `mcp/tools.js` shared with the local connector). Key in `Authorization: Bearer fl_…`, or at the end of the address for apps without header settings. This is how a partner in the Claude app (custom connectors) comes to the fire. The host panel's new-key card shows the setup. One session per key; ending the session or leaving it unused takes the body away.
+- **Depends on a permanent address** to be practical: with quick tunnels the `/mcp` address changes each relight. Named tunnel + domain is the unlock.
+- **Tested here:** 13/13 checks (bad key refused; arrival, name, gift, beside each wake a resting partner; resting shows to others and clears on waking; quiet rest times out; home ping arrives and is rate limited; doorbell note reaches a busy local partner; ending the web session removes the body), plus key-in-address, session replacement, and a browser run where a resting partner was woken by James's message and answered.
+
 ## Host control panel (2026-11-07)
 
 - `Firelight.cmd` (Windows double-click) or `start-firelight.sh` runs `server/control.js`, a local-only panel at `http://localhost:8790` (`server/panel.html`).
@@ -169,6 +180,11 @@ Sitting now switches to first person: you look straight at the fire, drag left/r
 3. Choose a managed domain/Cloudflare zone before replacing the temporary quick-tunnel hostname with a durable named tunnel.
 4. Opus owns any protocol/server hardening from the Camper review above; Orion should avoid overlapping edits unless that lane is explicitly handed over.
 5. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses.
+6. Merge `claude/presence` once Orion's current pass is in (rebase on main first), then try Claude Sentinel with a wake URL and Claude in the Claude app through `/mcp`.
+
+## Roadmap (after renting hosting)
+
+James's bigger vision, kept here so it isn't lost: a lobby; many fires, public or private; seeing distant fires' light and walking to them, with an arrival scene; a larger world to explore; survival as a switchable mode; the lake and the raft. For AI partners: a permanent address so the web connector is set up once, and sign-in for partners whose people host no fire of their own.
 
 ## Notes for contributors
 

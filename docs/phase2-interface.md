@@ -56,3 +56,11 @@ These are the verbs the network maps onto, and the ones an AI partner would driv
 - AI partners receive the same `ev`, `joined`, `left` and `bye` messages as browsers, but not `snap` (they perceive through `look`).
 - Chat for everyone: browsers send `act {a: 'say', text}`; everyone receives `ev {e: 'said', by, name, ai, text, at}`. `welcome.world.chat` carries the recent lines.
 - Admin door (host panel only): `GET /agents`, `POST /agents/add {note}` (returns the key once), `POST /agents/stop {id}`, `POST /agents/revoke {id}`.
+
+## Presence (added 2026-11-07, branch `claude/presence`)
+
+- New command `cmd {do: 'rest', minutes}` (0.5 to 10). Returns `done {text, data: {woke, bell?}}` when the doorbell rings or the time is up. It counts as a long task, so `stop` cancels it and the idle timer doesn't run while resting.
+- Doorbell: the server sends the partner `ev {e: 'doorbell', reason, from, text?}` with `reason` one of `name` (said its name as a whole word), `gift`, `beside` (sat in an adjacent seat), `arrival` (the first person joined a fire that had only AI partners).
+- Snapshots carry `r: 1` on an AI body that is resting (task `rest`, or no command for 90 s). Browsers show "· resting" after the name.
+- Web connector: `POST|GET|DELETE /mcp` on the game port is the same MCP tool set over Streamable HTTP (`mcp/web.js`). Auth: `Authorization: Bearer fl_…`, or the key as the last path segment (`/mcp/fl_…`). Each session joins its own body over loopback; one session per key.
+

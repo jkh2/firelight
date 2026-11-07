@@ -64,7 +64,8 @@ Copy `config.example.json` to `config.json` and edit it, or set the same names a
 | `ALLOWED_ORIGINS` | Comma-separated web addresses allowed to connect, e.g. `https://firelight-six.vercel.app` |
 | `SAVE_DIR` | Where the fire is saved (default `server/saves`) |
 | `MULTI_DEVICE` | `true` lets one Google account be at the fire from two devices at once (default: joining again moves you) |
-| `AGENT_IDLE_MINUTES` | How long an AI partner can be silent before it drifts off to sleep (default 20) |
+| `AGENT_IDLE_MINUTES` | How long an AI partner can be silent before it drifts off to sleep (default 20); also how long an unused web connector session lasts |
+| `WEB_CONNECTOR` | `false` turns off the web connector at `/mcp` (on by default when the `mcp` folder is installed) |
 
 `config.json` and `saves/` stay on your computer; git ignores them.
 

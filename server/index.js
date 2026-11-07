@@ -47,6 +47,8 @@ const CONFIG = {
   multiDevice: String(env('MULTI_DEVICE', 'false')) === 'true',
   // An AI partner that sends nothing for this many minutes drifts off to sleep
   agentIdleMinutes: Number(env('AGENT_IDLE_MINUTES', 20)),
+  // The web connector at /mcp, for AI apps that only take remote connectors (needs mcp/ installed)
+  webConnector: String(env('WEB_CONNECTOR', 'true')) !== 'false',
 };
 const authOn = !!(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
 
@@ -166,6 +168,8 @@ async function hello(p, m) {
   });
   broadcast({ t: 'joined', p: publicInfo(p) }, p);
   console.log(`${p.name}${p.ai ? ' (AI partner)' : ''} joined the fire. ${countJoined()} here.`);
+  // The first person to arrive at a fire where only AI partners are resting rings their doorbells
+  if (!agent && ![...players.values()].some((o) => o !== p && o.joined && !o.agent)) for (const o of players.values()) if (o.agent && o.joined) ring(o, 'arrival', { from: p.name });
 }
 
 const countJoined = () => [...players.values()].filter((x) => x.joined).length;
@@ -196,6 +200,7 @@ const doSit = (p, s) => {
   freeSeat(p);
   world.seats[s] = p.id;
   broadcast({ t: 'ev', e: 'seat', seat: s, by: p.id });
+  for (const n of [(s + 1) % SEATS, (s + SEATS - 1) % SEATS]) { const o = players.get(world.seats[n]); if (o?.agent && o !== p) ring(o, 'beside', { from: p.name }); }
   return true;
 };
 const doSay = (p, text) => {
@@ -207,10 +212,11 @@ const doSay = (p, text) => {
   const line = { by: p.id, name: p.name, ai: !!p.ai, text: clean, at: Date.now() };
   world.chat.push(line); if (world.chat.length > 50) world.chat.shift();
   broadcast({ t: 'ev', e: 'said', ...line });
+  for (const o of players.values()) if (o.agent && o !== p && o.joined && mentions(clean, o.name)) ring(o, 'name', { from: p.name, text: clean });
   return { ok: true, text: clean };
 };
 const doGive = (p, to, what, d) => {
-  if (to.agent) to.body.receive(what, d, p.name);
+  if (to.agent) { to.body.receive(what, d, p.name); ring(to, 'gift', { from: p.name, what }); }
   send(to, { t: 'ev', e: 'gift', from: p.id, fromName: p.name, what, d: num(d, 0, 1.4) });
   broadcast({ t: 'ev', e: 'gave', from: p.id, to: to.id, what }, to);
 };
@@ -223,6 +229,13 @@ const doRadioOff = () => {
   broadcast({ t: 'ev', e: 'radio', radio: null });
 };
 const nameOf = (id) => players.get(id)?.name || 'someone';
+/** Ring an AI partner's doorbell: something concerns them. */
+function ring(agentP, reason, detail) {
+  if (!agentP?.body) return;
+  agentP.body.ring(reason, detail);
+  send(agentP, { t: 'ev', e: 'doorbell', reason, ...detail });
+}
+const mentions = (text, name) => new RegExp(`(^|[^\\p{L}])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^\\p{L}])`, 'iu').test(text);
 function findPerson(name, except) {
   const n = String(name || '').trim().toLowerCase();
   if (!n) return null;
@@ -323,7 +336,27 @@ function state(p, m) {
 }
 
 // ---- network -----------------------------------------------------------------
+// The web connector: the Firelight MCP tools over HTTP at /mcp (see mcp/web.js)
+let webConnector = null;
+if (CONFIG.webConnector) {
+  try {
+    const { createWebConnector } = await import('../mcp/web.js');
+    webConnector = createWebConnector({
+      fireAddress: `ws://127.0.0.1:${CONFIG.port}`,
+      checkKey: (key) => !!agents.verify(key),
+      idleMinutes: CONFIG.agentIdleMinutes,
+      log: (line) => console.log(line),
+    });
+  } catch (e) {
+    console.log(`Web connector off: ${e.code === 'ERR_MODULE_NOT_FOUND' ? 'run npm install in the mcp folder to turn it on' : e.message}`);
+  }
+}
+
 const server = http.createServer((req, res) => {
+  if (/^\/mcp(\/|\?|$)/.test(req.url || '')) {
+    if (webConnector) return void webConnector(req, res);
+    res.writeHead(404, { 'content-type': 'text/plain' }); return void res.end('The web connector is off at this fire.');
+  }
   // A tiny status page, handy for checking the tunnel works
   res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
   res.end(JSON.stringify({ fire: CONFIG.fireName, people: countJoined(), max: CONFIG.maxPlayers, fuel: Math.round(world.fuel * 10) / 10, signIn: authOn, guests: CONFIG.allowGuests }));
@@ -445,4 +478,5 @@ server.listen(CONFIG.port, () => {
   console.log(`Firelight server: "${CONFIG.fireName}" on port ${CONFIG.port}`);
   console.log(`Sign-in: ${authOn ? 'Google via Supabase' : 'not set up yet'}; guests ${CONFIG.allowGuests ? 'welcome' : 'not allowed'}`);
   console.log(`Next: cloudflared tunnel --url http://localhost:${CONFIG.port}`);
+  if (webConnector) console.log(`AI partners can also connect over the web at <your fire's address>/mcp`);
 });

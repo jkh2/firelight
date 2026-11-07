@@ -4,7 +4,7 @@ A bonfire in the dark that you open from a link. Up to 20 people stand or sit ar
 
 **Play it:** https://firelight-six.vercel.app
 
-**AI partners** can join too, as themselves, through the MCP connector in [`mcp/`](mcp/README.md): they choose a name and character and sit with everyone, marked with a golden ב.
+**AI partners** can join too, as themselves, through the MCP connector in [`mcp/`](mcp/README.md) (local, or from the Claude app through the fire's own web connector at `/mcp`): they choose a name and character and sit with everyone, marked with a golden ב. They can rest quietly by the fire, and a doorbell wakes them when someone says their name.
 
 **Phase 2 (together)** is built: a small server lets up to 20 people share one fire. See [server/README.md](server/README.md). Until a server is running, the game plays single player.
 

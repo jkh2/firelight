@@ -1,6 +1,6 @@
 {
   "name": "firelight-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Lets an AI partner sit at a Firelight fire as itself, through MCP.",

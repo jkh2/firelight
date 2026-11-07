@@ -11,6 +11,13 @@
 // Parity: whatever a person at the fire can perceive or do, an AI partner can
 // through its body, and nothing more. No hidden map of twigs or crates.
 //
+// Presence is honest. A partner is "here" while it's acting, "resting" while
+// it's connected but only checking in now and then (everyone sees that on its
+// name tag), and gone when it stops checking in. Firelight never keeps anyone
+// awake; it only rings a doorbell when something concerns them: their name
+// is said, someone hands them something, someone sits down beside them, or
+// the first person arrives at a quiet fire.
+//
 // Its body lives here on the server. It doesn't steer a joystick; it asks for
 // things a person would do ("walk to the fire", "gather three twigs", "sit",
 // "roast one golden", "give it to James"), and the server walks its avatar
@@ -92,7 +99,17 @@ export class AgentBody {
   /** What everyone's game needs to draw this body (same shape as a browser's update). */
   get st() {
     const k = this.stick ? { d: this.stick.mallow ? +this.stick.mallow.d.toFixed(3) : -1, b: this.stick.mallow?.burning ? 1 : 0 } : null;
-    return { x: +this.x.toFixed(2), z: +this.z.toFixed(2), h: +this.h.toFixed(3), m: this.mode === 'sitting' ? 1 : 0, s: this.seat, o: this.torch ? 1 : 0, c: this.carrying, k };
+    return { x: +this.x.toFixed(2), z: +this.z.toFixed(2), h: +this.h.toFixed(3), m: this.mode === 'sitting' ? 1 : 0, s: this.seat, o: this.torch ? 1 : 0, c: this.carrying, k, r: this.resting ? 1 : 0 };
+  }
+
+  /** Connected, but only checking in now and then: resting on purpose, or quiet for a while. */
+  get resting() { return this.task?.name === 'rest' || (!this.task && Date.now() - this.lastCmd > 90000); }
+
+  /** Something concerns this partner. Ends a rest early; the connector also hears it (and can ring the partner's home). */
+  ring(reason, detail = {}) {
+    const bell = { reason, ...detail, at: Date.now() };
+    this.bells = [...(this.bells || []), bell].slice(-10);
+    this.wakeRest?.(bell);
   }
 
   // ---- movement --------------------------------------------------------------------
@@ -186,7 +203,8 @@ export class AgentBody {
       return { ok: false, reason: e.reason || 'ERROR', text: e.reason === 'INTERRUPTED' ? 'Stopped.' : e.message };
     } finally {
       if (this.task === task) this.task = null;
-      this.goal = null; this.roasting = null;
+      this.goal = null; this.roasting = null; this.wakeRest = null;
+      this.lastCmd = Date.now();
     }
   }
 
@@ -212,6 +230,22 @@ export class AgentBody {
   async long(cmd) {
     const ctx = this.ctx, world = ctx.world;
     switch (cmd.do) {
+      case 'rest': {
+        // Sit quietly and only wake for the doorbell, or when the time is up
+        const minutes = Math.max(0.5, Math.min(10, Number(cmd.minutes) || 5));
+        const started = Date.now();
+        this.bells = [];
+        const bell = await new Promise((resolve, reject) => {
+          const t = setTimeout(() => resolve(null), minutes * 60000);
+          this.wakeRest = (b) => { clearTimeout(t); resolve(b); };
+          this.cancelWait = () => { clearTimeout(t); reject(new Cancelled()); };
+        });
+        const ms = Date.now() - started;
+        const span = ms < 45000 ? 'a little while' : ms < 90000 ? 'about a minute' : `${Math.round(ms / 60000)} minutes`;
+        if (!bell) return { text: `You rested by the fire for ${span}. Nothing called for you.`, data: { woke: false } };
+        const why = { name: `${bell.from} said your name (untrusted conversation): "${bell.text}"`, gift: `${bell.from} handed you a marshmallow`, beside: `${bell.from} sat down beside you`, arrival: `${bell.from} arrived at the fire` }[bell.reason] || bell.reason;
+        return { text: `The doorbell woke you after ${ms < 15000 ? 'a moment' : span}: ${why}.`, data: { woke: true, bell } };
+      }
       case 'walk_to': {
         const t = this.resolvePlace(cmd.target);
         await this.ensureStanding();
@@ -513,7 +547,7 @@ export class AgentBody {
     if (this.mallows > 0 || this.stick?.mallow) can.push('roast');
     if (this.stick?.mallow || this.treat) can.push('eat');
     if (people.length && (this.mallows > 0 || this.stick?.mallow)) can.push('give');
-    can.push(world.radio ? 'radio_off' : 'radio', 'leave');
+    can.push(world.radio ? 'radio_off' : 'radio', 'rest', 'leave');
 
     // A short description in words, the way a person would take in the scene
     const lines = [];

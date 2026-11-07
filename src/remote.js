@@ -13,13 +13,15 @@ import { groundY } from './world.js';
 
 const DELAY = 0.15; // seconds behind real time, so movement looks smooth
 
-function nameTag(name, ai) {
+/** A name tag. AI partners show a golden ב; a resting partner's tag dims and says so. */
+function nameTag(name, ai, resting = false) {
   const c = document.createElement('canvas');
   const g = c.getContext('2d');
   const font = '600 30px Inter, system-ui, sans-serif';
   g.font = font;
   const mark = ai ? 'ב ' : '';
-  const w = Math.ceil(g.measureText(mark + name).width) + 34;
+  const rest = resting ? '  · resting' : '';
+  const w = Math.ceil(g.measureText(mark + name + rest).width) + 34;
   c.width = w; c.height = 50;
   g.font = font;
   g.fillStyle = 'rgba(14,11,9,0.62)';
@@ -27,8 +29,9 @@ function nameTag(name, ai) {
   g.beginPath(); g.moveTo(r, 3); g.arcTo(w - 3, 3, w - 3, 47, r); g.arcTo(w - 3, 47, 3, 47, r); g.arcTo(3, 47, 3, 3, r); g.arcTo(3, 3, w - 3, 3, r); g.fill();
   g.textBaseline = 'middle';
   let x = 17;
-  if (ai) { g.fillStyle = '#ffc24a'; g.fillText('ב', x, 26); x += g.measureText('ב ').width; }
-  g.fillStyle = '#f3e6d6'; g.fillText(name, x, 26);
+  if (ai) { g.fillStyle = resting ? 'rgba(255,194,74,0.6)' : '#ffc24a'; g.fillText('ב', x, 26); x += g.measureText('ב ').width; }
+  g.fillStyle = resting ? 'rgba(243,230,214,0.6)' : '#f3e6d6'; g.fillText(name, x, 26);
+  if (resting) { x += g.measureText(name).width; g.font = 'italic 500 26px Inter, system-ui, sans-serif'; g.fillStyle = 'rgba(185,168,147,0.85)'; g.fillText(rest, x, 27); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, fog: false }));
   s.scale.set(w / 50 * 0.26, 0.26, 1);
@@ -142,6 +145,14 @@ export class RemotePlayer {
     this.heading += dh * Math.min(1, dt * 10);
 
     const st = c.st;
+    // Resting partners: the tag dims and says so, so nobody expects an instant answer
+    const resting = !!st.r;
+    if (resting !== !!this.resting) {
+      this.resting = resting;
+      this.scene.remove(this.tag); this.tag.material.map.dispose(); this.tag.material.dispose();
+      this.tag = nameTag(this.name, this.ai, resting);
+      this.scene.add(this.tag);
+    }
     const wasSitting = this.sitting;
     this.sitting = !!st.m;
     if (this.sitting && !wasSitting) this.avatar.once('Sit_Chair_Down');
