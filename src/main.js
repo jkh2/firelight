@@ -35,7 +35,16 @@ resize();
 
 // ---- loading ----------------------------------------------------------------
 const loader = new GLTFLoader();
-const load = (f) => new Promise((ok, fail) => loader.load(MODELS[f], ok, undefined, fail));
+// Normal builds fetch models from /models; the single-file preview embeds them
+// in the script (some hosts block fetching even embedded files) and parses them directly.
+const load = (f) => new Promise((ok, fail) => {
+  const src = MODELS[f];
+  if (src.startsWith('b64:')) {
+    const bin = atob(src.slice(4)), buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    loader.parse(buf.buffer, '', ok, fail);
+  } else loader.load(src, ok, undefined, fail);
+});
 let look = store.get('firelight.look', AVATAR.looks[0]);
 if (!AVATAR.looks.includes(look)) look = AVATAR.looks[0];
 

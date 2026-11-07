@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       if (id !== '\0virtual:models') return null;
       const files = readdirSync('public/models').filter((f) => f.endsWith('.glb'));
       const entries = files.map((f) => [f, single
-        ? `data:model/gltf-binary;base64,${readFileSync(`public/models/${f}`).toString('base64')}`
+        ? `b64:${readFileSync(`public/models/${f}`).toString('base64')}`
         : `models/${f}`]);
       return `export default ${JSON.stringify(Object.fromEntries(entries))};`;
     },
