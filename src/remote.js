@@ -39,6 +39,26 @@ function nameTag(name, ai, resting = false) {
   return s;
 }
 
+/** A soft warm glow over someone's head while their voice is coming through. */
+let glowTex = null;
+function voiceGlow() {
+  if (!glowTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const rg = g.createRadialGradient(32, 32, 4, 32, 32, 30);
+    rg.addColorStop(0, 'rgba(255,214,140,0.95)'); rg.addColorStop(0.35, 'rgba(255,170,80,0.55)'); rg.addColorStop(1, 'rgba(255,140,50,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+    // three little sound arcs
+    g.strokeStyle = 'rgba(255,240,215,0.95)'; g.lineWidth = 3; g.lineCap = 'round';
+    for (const [r, a] of [[8, 0.9], [14, 0.8], [20, 0.7]]) { g.beginPath(); g.arc(22, 32, r, -a, a); g.stroke(); }
+    glowTex = new THREE.CanvasTexture(c); glowTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+  s.scale.set(0.34, 0.34, 1);
+  s.renderOrder = 11;
+  return s;
+}
+
 /** A speech bubble: the words someone just said, floating over their head. */
 export function speechBubble(text, ai) {
   const c = document.createElement('canvas');
@@ -107,6 +127,9 @@ export class RemotePlayer {
     this.avatar.root.traverse((o) => { if (o.isMesh) o.userData.player = info.id; });
     this.tag = nameTag(info.name, this.ai);
     scene.add(this.tag);
+    this.glow = voiceGlow();
+    this.talking = false;
+    scene.add(this.glow);
     this.buffer = [];
     this.pos = new THREE.Vector3();
     this.heading = 0;
@@ -121,6 +144,9 @@ export class RemotePlayer {
   }
 
   emit() { /* remote players' events arrive over the network instead */ }
+
+  /** Their voice is (or stopped) coming through. */
+  setSpeaking(on) { this.talking = on; }
 
   push(st) {
     this.buffer.push({ time: performance.now() / 1000, st });
@@ -170,10 +196,19 @@ export class RemotePlayer {
     this.avatar.update(dt, loco);
     this.roaster.update(dt);
     this.tag.position.set(this.pos.x, this.pos.y + 2.25, this.pos.z);
+    // The voice glow sits just left of the name tag and fades in and out with their voice
+    const m = this.glow.material;
+    m.opacity += ((this.talking ? 1 : 0) - m.opacity) * Math.min(1, dt * (this.talking ? 14 : 5));
+    this.glow.visible = m.opacity > 0.02;
+    const half = this.tag.scale.x / 2 + 0.11;
+    this.glow.position.set(this.pos.x, this.pos.y + 2.25, this.pos.z);
+    this.glow.center.set(0.5 + half / this.glow.scale.x, 0.5);
+    if (this.talking) { const k = 1 + Math.sin(performance.now() / 110) * 0.06; this.glow.scale.set(0.34 * k, 0.34 * k, 1); }
   }
 
   dispose() {
     this.avatar.dispose(this.scene);
-    this.scene.remove(this.tag, this.roaster.group, this.roaster.flames.mesh);
+    this.scene.remove(this.tag, this.glow, this.roaster.group, this.roaster.flames.mesh);
+    this.glow.material.dispose();
   }
 }

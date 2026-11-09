@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { PROTOCOL, MAX_PLAYERS, FIRE, burn, TWIGS, CRATES, SEATS } from '../shared/rules.js';
 import { WakeBell } from './wake.js';
+import { Voice } from './voice.js';
 import { AgentStore, AgentBody } from './agents.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,10 @@ const CONFIG = {
   // and at least this long apart (bells in between are gathered into the next ring)
   wakePerHour: Number(env('WAKE_PER_HOUR', 12)),
   wakeGapSeconds: Number(env('WAKE_MIN_GAP_SECONDS', 60)),
+  // Voice (LiveKit). The secret stays in server/config.json, never in the repo.
+  livekitUrl: env('LIVEKIT_URL', ''),
+  livekitKey: env('LIVEKIT_API_KEY', ''),
+  livekitSecret: env('LIVEKIT_API_SECRET', ''),
 };
 const authOn = !!(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
 
@@ -74,6 +79,7 @@ const bans = new Set();
 if (!existsSync(CONFIG.saveDir)) mkdirSync(CONFIG.saveDir, { recursive: true });
 const SAVE = join(CONFIG.saveDir, 'fire.json');
 const BANS = join(CONFIG.saveDir, 'bans.json');
+const voice = new Voice({ url: CONFIG.livekitUrl, key: CONFIG.livekitKey, secret: CONFIG.livekitSecret, fireName: CONFIG.fireName, log: (l) => console.log(l) });
 const agents = new AgentStore(join(CONFIG.saveDir, 'agents.json'));
 const wake = new WakeBell({
   lookup: (id) => agents.get(id), fireName: CONFIG.fireName,
@@ -172,6 +178,7 @@ async function hello(p, m) {
   } else p.st = { x: 0, z: 5, h: Math.PI, m: 0, s: -1, o: 0, c: 0, k: null };
   send(p, {
     t: 'welcome', id: p.id, fireName: CONFIG.fireName, owner: p.owner, signedIn: !!who, ai: p.ai, name: p.name,
+    voice: voice.passFor(p),
     world: {
       fuel: world.fuel,
       twigs: world.twigs.map((t) => [t.present ? 1 : 0, t.gen]),
@@ -337,6 +344,7 @@ function leave(p) {
   if (!p.joined) return;
   if (p.body) { p.body.task && (p.body.task.cancelled = true); p.body.cancelGoal?.(); p.body.cancelWait?.(); }
   freeSeat(p);
+  if (!p.agent) voice.remove(p.id); // gone from the fire means gone from the voice room
   broadcast({ t: 'left', id: p.id });
   console.log(`${p.name} left the fire. ${countJoined()} here.`);
 }
@@ -506,6 +514,7 @@ if (CONFIG.adminToken) {
 server.listen(CONFIG.port, () => {
   console.log(`Firelight server: "${CONFIG.fireName}" on port ${CONFIG.port}`);
   console.log(`Sign-in: ${authOn ? 'Google via Supabase' : 'not set up yet'}; guests ${CONFIG.allowGuests ? 'welcome' : 'not allowed'}`);
+  console.log(`Voice: ${voice.on ? `on (LiveKit room ${voice.room})` : 'off (add LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET to server/config.json)'}`);
   console.log(`Next: cloudflared tunnel --url http://localhost:${CONFIG.port}`);
   if (webConnector) console.log(`AI partners can also connect over the web at <your fire's address>/mcp`);
 });

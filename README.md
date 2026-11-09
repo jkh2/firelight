@@ -20,7 +20,7 @@ Firelight is free and not for sale. It was made for a family, their friends, and
 
 **Sitting together.** Ten seats ring the fire, camp chairs and logs. When you sit, the view switches to first person: you face the fire and can turn to see the people beside you.
 
-**Talking.** Text chat with speech bubbles over each person's head (each person can turn the bubbles off) and a chat log. Voice is next on the list.
+**Talking.** Text chat with speech bubbles over each person's head (each person can turn the bubbles off) and a chat log. **Voice**, when the host has set it up: your microphone starts off, and each voice comes from that person's place at the fire, quieter as they wander into the woods. A soft glow beside a name shows who's talking, and you can mute anyone's voice just for yourself.
 
 **The radio.** A radio on a little table by the fire plays YouTube songs that everyone hears at the same moment. You can tune out on your own without stopping it for everyone, and the player card can be dragged anywhere on the screen.
 
@@ -45,6 +45,7 @@ Firelight is free and not for sale. It was made for a family, their friends, and
 | Find marshmallows | Click a crate hidden in the woods | Tap a crate |
 | Your pack, roast, eat | I, R, Q | Tap your pack (top left) |
 | Share a marshmallow | Click a person | Tap a person |
+| Talk out loud (voice fires) | V | Microphone button |
 | Chat / bubbles | Enter or T / B | Chat button |
 | Radio | Click the radio and paste a YouTube link | Tap the radio |
 | Sound | M | Speaker button |
@@ -97,7 +98,7 @@ This version is for family, friends and AI partners, hosted on James's PC, and k
 - [x] AI partners as themselves through MCP, with parity rules
 - [x] Presence: rest leases, the doorbell, signed home rings, the web connector for the Claude app *(on the `claude/presence` branch, in review)*
 - [ ] **A permanent address.** A named tunnel on a domain, so invite links and the Claude app connector don't change every time the fire is lit
-- [ ] **Voice.** Talk out loud, with each voice coming from that person's place at the fire (LiveKit)
+- [ ] **Voice.** Talk out loud, with each voice coming from that person's place at the fire (LiveKit). *Built on the `claude/voice` branch; waiting for a real test on two devices*
 - [ ] **The grandkids' path.** Children under 13 often can't sign in with Google. A parent may bring them on the same device, or invited guest seats may work.
 - [ ] **The server keeps everyone honest.** The server checks people's twigs, marshmallows and reach, as it already does for AI partners.
 - [ ] Facebook sign-in, after Meta's app review
@@ -132,6 +133,7 @@ This version is for family, friends and AI partners, hosted on James's PC, and k
 | **The doorbell** (`server/wake.js`) | Signed, coalesced rings to partners' homes, plus `verifyDoorbell()` for homes to check them |
 | **Shared rules** (`shared/rules.js`) | Fire size, burn rate, seats, twig and crate spots, roasting: one source for the game, the server and AI bodies |
 | **Sign-in** (`src/auth.js`) | Google through Supabase. The server checks each sign-in. No service-role key anywhere. |
+| **Voice** (`server/voice.js`, `src/voice.js`) | LiveKit. The server hands joined people an audio-only pass and takes them out of voice when they leave. The game places each voice in 3D at that person. |
 
 <details>
 <summary>Code map of the game</summary>
@@ -147,6 +149,7 @@ This version is for family, friends and AI partners, hosted on James's PC, and k
 | `src/critters.js` | Wolves, fox, deer and fireflies |
 | `src/radio.js` | The radio and the YouTube player |
 | `src/audio.js` | The sound bed, made live with Web Audio (no audio files) |
+| `src/voice.js` | Voice: the mic, and each person's voice placed at them in 3D |
 | `src/net.js`, `src/multiplayer.js`, `src/remote.js` | Joining a shared fire, staying in step with it, and drawing everyone else (name tags, ב, "· resting", speech bubbles) |
 | `src/auth.js` | Sign in with Google |
 | `tools/` | Scripts that turned the CC0 packs into the small files in `public/models`, and the desktop shortcut maker |

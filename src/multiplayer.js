@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Net } from './net.js';
 import { RemotePlayer } from './remote.js';
+import { VoiceChat } from './voice.js';
 
 // ---------------------------------------------------------------------------
 // Joins a shared fire and keeps this player and the world in step with it.
@@ -18,6 +19,15 @@ export async function joinFire(url, g) {
   let myId = welcome.id;
   let fuelTarget = welcome.world.fuel;
   let lastCrateGot = 0;
+
+  // Voice: the pass arrives in the welcome; it connects once sound has started (on joining)
+  const findRemote = (id) => remotes.get(Number(id)) ?? remotes.get(String(id));
+  const voice = new VoiceChat({
+    sound, hint, personFor: findRemote,
+    onChange: (st) => g.onVoice?.(st),
+    onSpeaking: (id, on) => findRemote(id)?.setSpeaking(on),
+  });
+  let voicePass = welcome.voice || null, voiceStarted = false;
 
   twigs.networked = true;
   crates.networked = true;
@@ -49,14 +59,14 @@ export async function joinFire(url, g) {
   setup(welcome);
 
   // ---- from the server --------------------------------------------------------
-  net.on('rewelcome', (w) => { setup(w); hint('Back at the fire.', 2.5); });
+  net.on('rewelcome', (w) => { setup(w); hint('Back at the fire.', 2.5); voicePass = w.voice || null; if (voiceStarted) voice.connect(voicePass); });
   net.on('lost', () => hint('Lost the connection to the fire. Reconnecting…', 6));
-  net.on('bye', (m) => hint(m.text, 10));
+  net.on('bye', (m) => { hint(m.text, 10); voice.disconnect(); });
   net.on('joined', (m) => { addPlayer(m.p); g.onCount?.(remotes.size + 1); hint(`${m.p.name} joined the fire.`, 3.5); });
   net.on('left', (m) => {
     const r = remotes.get(m.id);
     if (!r) return;
-    r.dispose(); remotes.delete(m.id);
+    r.dispose(); remotes.delete(m.id); voice.detach(String(m.id));
     for (const s of seats) if (s.occupant?.remote === m.id) s.occupant = null;
     g.onCount?.(remotes.size + 1);
     hint(`${r.name} left the fire.`, 3);
@@ -138,6 +148,7 @@ export async function joinFire(url, g) {
     // The server's fire is the real one; ease toward it
     fire.fuel += (fuelTarget - fire.fuel) * Math.min(1, dt * 2);
     for (const r of others()) r.update(dt);
+    voice.update();
     sendT += dt;
     if (sendT >= 0.1 && net.open) {
       sendT = 0;
@@ -150,5 +161,8 @@ export async function joinFire(url, g) {
     }
   }
 
-  return { net, remotes, update, personFor, get id() { return myId; }, fireName: welcome.fireName, owner: welcome.owner };
+  /** Start voice, if this fire has it. Called after the game's sound has started. */
+  function startVoice() { voiceStarted = true; return voice.connect(voicePass); }
+
+  return { net, remotes, update, personFor, voice, startVoice, get id() { return myId; }, fireName: welcome.fireName, owner: welcome.owner };
 }

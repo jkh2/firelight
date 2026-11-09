@@ -383,6 +383,7 @@ function startGame(props, clips, models, animals) {
     if (!joined || e.target.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
     if ((k === 'enter' || k === 't') && !e.repeat) { e.preventDefault(); openChat(); return; }
+    if (k === 'v' && !e.repeat) { toggleMic(); return; }
     if (k === 'b' && !e.repeat) { setBubbles(!bubblesOn); hint(bubblesOn ? 'Speech bubbles on.' : 'Speech bubbles off. What people say still shows in the chat.', 2.5); return; }
     if (k === 'f' && !e.repeat) { me.toggleTorch(); return; }
     if (k === 'm' && !e.repeat) { toggleSound(); return; }
@@ -408,6 +409,26 @@ function startGame(props, clips, models, animals) {
 
   $('torchBtn').addEventListener('click', () => me.toggleTorch());
   $('soundBtn').addEventListener('click', toggleSound);
+
+  // ---- voice ------------------------------------------------------------------------
+  const micBtn = $('micBtn');
+  let voiceHinted = false;
+  function onVoice(st) {
+    micBtn.hidden = !st.available;
+    micBtn.classList.toggle('off', !st.micOn);
+    micBtn.classList.toggle('live', st.micOn && st.speaking);
+    micBtn.classList.toggle('waiting', st.connecting);
+    micBtn.setAttribute('aria-pressed', String(st.micOn));
+    if (st.connected && !voiceHinted) { voiceHinted = true; setTimeout(() => hint(touch ? 'This fire has voice. Tap the microphone to talk out loud.' : 'This fire has voice. Press V (or the microphone) to talk out loud. Headphones keep your mic from hearing the fire.', 6), 8000); }
+  }
+  async function toggleMic() {
+    if (!mp?.voice) return hint("Voice works at a shared fire. Chat still works.", 3);
+    const before = mp.voice.micOn;
+    const on = await mp.voice.setMic(!before);
+    // Only say so when it actually changed; otherwise the voice module has already said why not
+    if (on !== before) hint(on ? 'Your microphone is on. Everyone at the fire can hear you, louder the closer they are.' : 'Your microphone is off.', 2.5);
+  }
+  micBtn.addEventListener('click', toggleMic);
   function toggleSound() {
     sound.setMuted(!sound.muted);
     $('soundBtn').classList.toggle('off', sound.muted);
@@ -601,12 +622,23 @@ function startGame(props, clips, models, animals) {
     $('giveRoasted').disabled = !roasted;
     $('giveRaw').disabled = me.mallows <= 0;
     $('giveNote').textContent = roasted || me.mallows > 0 ? `Stand close to ${r.name} to hand it over.` : 'Find marshmallows in the crates hidden in the woods.';
+    const mv = $('muteVoice'), v = mp?.voice;
+    mv.hidden = !v?.hasVoice(id) && !v?.isMutedFor(id);
+    mv.textContent = v?.isMutedFor(id) ? `Hear ${r.name}'s voice again` : `Mute ${r.name}'s voice for me`;
     givePanel.classList.add('open');
   }
   function closeGive() { givePanel.classList.remove('open'); giveTo = null; }
   $('giveRoasted').addEventListener('click', () => { const p = mp?.personFor(giveTo); if (p) me.give(p, 'roasted'); });
   $('giveRaw').addEventListener('click', () => { const p = mp?.personFor(giveTo); if (p) me.give(p, 'raw'); });
   $('giveClose').addEventListener('click', closeGive);
+  $('muteVoice').addEventListener('click', () => {
+    const v = mp?.voice, r = mp?.remotes.get(giveTo);
+    if (!v || !r) return;
+    const muted = !v.isMutedFor(giveTo);
+    v.setMutedFor(giveTo, muted);
+    $('muteVoice').textContent = muted ? `Hear ${r.name}'s voice again` : `Mute ${r.name}'s voice for me`;
+    hint(muted ? `${r.name}'s voice is muted for you. Their chat still shows.` : `You can hear ${r.name} again.`, 3);
+  });
   givePanel.addEventListener('click', (e) => { if (e.target === givePanel) closeGive(); });
 
   // ---- join -----------------------------------------------------------------
@@ -657,7 +689,7 @@ function startGame(props, clips, models, animals) {
         mp = await joinFire(fireURL, {
           scene, me, fire, twigs, crates, seats: world.seats, radio, sound, hint, throwTwig, models, clips, torchModel,
           hello: { name, look, token: user?.token },
-          onCount: showCount, onInventory: updateTwigHud, onSaid, onChatHistory,
+          onCount: showCount, onInventory: updateTwigHud, onSaid, onChatHistory, onVoice,
         });
         window.__firelight.mp = mp;
       } catch (e) {
@@ -672,6 +704,7 @@ function startGame(props, clips, models, animals) {
     if (goSolo) setTimeout(() => hint("You're at a fire of your own. The shared fire is offline right now.", 5), 7500);
     sound.start();
     if (sound.muted) sound.setMuted(true);
+    mp?.startVoice(); // after sound, so voices have somewhere to play
     $('join').classList.add('gone');
     $('hud').classList.add('show');
     updateTwigHud();

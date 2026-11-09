@@ -121,6 +121,16 @@ James asked for "anyone with a frontier account can log in and have their AI par
 - **Depends on a permanent address** to be practical: with quick tunnels the `/mcp` address changes each relight. Named tunnel + domain is the unlock.
 - **Tested here:** 20/20 checks: arrival, name, gift and beside bells; lease shows as resting and speaking ends it; zero-wait rests; bells held between calls; an abandoned web session without a lease leaves in about 9 s (test setting 8 s); a leased one stays, then leaves 60.0 s after a 1-minute lease, and so does a connected local partner; a listening partner gets the bell directly with no home ring; a resting-between-calls partner's home is rung; rings coalesce and cap; signature verifies; replayed, tampered, stale and wrong-secret rings are refused; payload ~0.5 KB and marked untrusted. Host panel approve flow checked in a browser (bad address refused; secret shown once, kept out of `/api/agents`). Also rebased on `c508ec8` with all of its guarantees kept, and a timed-out command now stops the body.
 
+## Voice (2026-11-09, branch `claude/voice`, built on `claude/presence`)
+
+Built, waiting for a real two-device test with James's LiveKit project.
+
+- **Server** (`server/voice.js`): with `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `server/config.json`, each joined *person* gets `welcome.voice = {url, token, room}`. The token is an HS256 LiveKit JWT signed locally, audio only (`canPublishSources: ['microphone']`, no data), identity = their game id, six hours; the room is `firelight-<fire name>`. AI partners get `null` and speak in text. **Leaving the fire means leaving voice:** `leave()` calls LiveKit's `RoomService/RemoveParticipant`, so removed, banned and disconnected people are taken out of the voice room too.
+- **Game** (`src/voice.js`, loaded only when a fire offers voice): microphone starts **off**; the mic button or **V** turns it on (echo cancellation, noise suppression, auto gain). Each voice is played through a Web Audio HRTF panner at that person's head (lower when seated), into the same master as the fire, so the sound button mutes it too. A warm glow beside a name shows who's talking, and the mic button glows while you are. *Mute their voice for me* is in the panel that opens when you click a person. If voice can't connect, a hint says so and chat carries on; tapping the mic tries again.
+- **Tested here:** LiveKit's own `TokenVerifier` accepts the passes (and rejects a wrong secret); AI partners get none; leaving sends a correctly signed `RemoveParticipant` (checked against a stand-in API); in Chromium, a simulated voice sat exactly at Lily's position with HRTF, mute-for-me set its gain to 0 and back, the glow showed and faded, an unreachable voice server left chat working, and a fire without voice shows no mic button and never downloads the voice library. **Not tested here:** real audio between two devices. This workspace isn't allowed to run a LiveKit server, so that test needs James.
+- **James's test:** put the three LiveKit lines in `server/config.json`, light the fire (the server log says `Voice: on`), join on the PC and the phone, turn the mic on with V on one, and walk around the fire on the other. The voice should come from that person and grow quieter toward the woods. Headphones on the PC avoid the mic picking up the speakers.
+- **Free plan:** 5,000 participant-minutes a month (about 16 one-hour evenings with five people). It's a hard cap; voice stops until the next month and chat keeps working.
+
 ## Host control panel (2026-11-07)
 
 - `Firelight.cmd` (Windows double-click) or `start-firelight.sh` runs `server/control.js`, a local-only panel at `http://localhost:8790` (`server/panel.html`).
@@ -180,7 +190,7 @@ Sitting now switches to first person: you look straight at the fire, drag left/r
 2. Keep guest access enabled for now; Google sign-in is working but optional. Decide the family/under-13 path and the one-account/one-body replace-or-reject policy before disabling guests.
 3. Choose a managed domain/Cloudflare zone before replacing the temporary quick-tunnel hostname with a durable named tunnel.
 4. Opus owns any protocol/server hardening from the Camper review above; Orion should avoid overlapping edits unless that lane is explicitly handed over.
-5. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses.
+5. Phase 3: LiveKit voice, placed at each avatar with the same Web Audio panners `audio.js` uses. **Built on `claude/voice`; needs James's two-device test.**
 6. Merge `claude/presence` once Orion's current pass is in (rebase on main first), then try Claude Sentinel with a wake URL and Claude in the Claude app through `/mcp`.
 
 ## Roadmap (after renting hosting)

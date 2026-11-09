@@ -74,6 +74,16 @@ h1 { font: 600 44px/1 Fraunces, Georgia, serif; letter-spacing: -0.01em; margin:
 #soundBtn .x { display: none; }
 #soundBtn.off .waves { display: none; }
 #soundBtn.off .x { display: block; }
+#micBtn[hidden] { display: none; }
+#micBtn .mic { fill: none; stroke: var(--ink-dim); stroke-width: 1.6; }
+#micBtn path { fill: none; stroke: var(--ink-dim); stroke-width: 1.6; stroke-linecap: round; }
+#micBtn .x { display: none; }
+#micBtn.off .x { display: block; }
+#micBtn.waiting { opacity: 0.5; }
+#micBtn:not(.off) { background: rgba(255, 138, 58, 0.18); border-color: var(--ember); }
+#micBtn:not(.off) .mic { fill: var(--ember-soft); stroke: var(--ember); }
+#micBtn:not(.off) path { stroke: var(--ember); }
+#micBtn.live { box-shadow: 0 0 0 4px rgba(255, 138, 58, 0.25), 0 0 26px rgba(255, 138, 58, 0.6); }
 
 /* ---- radio ------------------------------------------------------------ */
 #radioPanel { position: fixed; inset: 0; display: grid; place-items: end center; padding: 16px 16px calc(24px + env(safe-area-inset-bottom));

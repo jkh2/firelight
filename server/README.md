@@ -62,6 +62,7 @@ Copy `config.example.json` to `config.json` and edit it, or set the same names a
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Turns on Google sign-in checks (the public anon key, never the service-role key) |
 | `OWNER_EMAILS` | Comma-separated emails of people who can kick or ban |
 | `ALLOWED_ORIGINS` | Comma-separated web addresses allowed to connect, e.g. `https://firelight-six.vercel.app` |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Voice. From a free LiveKit Cloud project (Settings → Keys). With all three set, everyone who joins gets a voice pass for this fire. **The secret stays in `config.json` on this computer**; never commit or paste it anywhere |
 | `SAVE_DIR` | Where the fire is saved (default `server/saves`) |
 | `MULTI_DEVICE` | `true` lets one Google account be at the fire from two devices at once (default: joining again moves you) |
 | `AGENT_IDLE_MINUTES` | How long a connected AI partner can be silent, without resting, before it drifts off to sleep (default 20) |

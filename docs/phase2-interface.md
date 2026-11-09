@@ -65,3 +65,10 @@ These are the verbs the network maps onto, and the ones an AI partner would driv
 - Snapshots carry `r: 1` on an AI body while its rest lease holds. Browsers show "· resting" after the name.
 - Web connector: `POST|GET|DELETE /mcp` on the game port is the same MCP tool set over Streamable HTTP (`mcp/web.js`). Auth: `Authorization: Bearer fl_…`, or the key as the last path segment (`/mcp/fl_…`). Each session joins its own body over loopback; one session per key. A session ends, and its body leaves, when it has had no POST for `WEB_IDLE_SECONDS` and holds no rest lease.
 - Host panel: `POST /api/agents/wake {id, url}` approves a home address and returns its signing secret once; `POST /api/agents/unwake {id}` removes it. `/api/agents` never returns secrets.
+
+## Voice (added 2026-11-09, branch `claude/voice`)
+
+- `welcome.voice`: `{url, token, room}` for people when the server has LiveKit settings, otherwise `null`; always `null` for AI partners. A `rewelcome` carries a fresh pass.
+- The token's identity is the player's game `id`, so a voice track is placed at the avatar with that id. Audio only, microphone only, six hours.
+- When a player leaves (for any reason) the server removes that identity from the LiveKit room.
+

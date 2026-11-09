@@ -5,5 +5,8 @@
   "SUPABASE_URL": "",
   "SUPABASE_ANON_KEY": "",
   "OWNER_EMAILS": "you@example.com",
-  "ALLOWED_ORIGINS": ""
+  "ALLOWED_ORIGINS": "",
+  "LIVEKIT_URL": "",
+  "LIVEKIT_API_KEY": "",
+  "LIVEKIT_API_SECRET": ""
 }
